@@ -6,17 +6,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { 
   Users, Radio, MessageCircle, Gift, Shield, 
   TrendingUp, Search, ChevronLeft, Crown, BadgeCheck,
-  MoreVertical, Ban, Coins, Award, Trash2
+  MoreVertical, Ban, Coins, Award, Trash2, Edit, Bell,
+  Send, Gem, CircleDollarSign, Diamond, Plus
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -41,10 +46,13 @@ interface UserProfile {
   level: number;
   points: number;
   ruby: number;
+  diamonds: number;
   is_verified: boolean;
   is_vip: boolean;
+  vip_type: string | null;
   is_banned: boolean;
   status: string;
+  bio: string;
   created_at: string;
 }
 
@@ -64,6 +72,39 @@ const Admin: React.FC = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingData, setLoadingData] = useState(true);
+  
+  // Edit User Modal
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editForm, setEditForm] = useState({
+    display_name: '',
+    username: '',
+    bio: '',
+    country: '',
+    level: 0,
+    points: 0,
+    ruby: 0,
+    diamonds: 0,
+    is_verified: false,
+    is_vip: false,
+    vip_type: '',
+  });
+  
+  // Send Currency Modal
+  const [sendingCurrency, setSendingCurrency] = useState<{userId: string; userName: string} | null>(null);
+  const [currencyForm, setCurrencyForm] = useState({
+    type: 'points' as 'points' | 'ruby' | 'diamonds',
+    amount: 0,
+  });
+  
+  // Notification Modal
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationForm, setNotificationForm] = useState({
+    title_ar: '',
+    title_en: '',
+    content_ar: '',
+    content_en: '',
+    target_audience: 'everyone',
+  });
 
   useEffect(() => {
     if (!loading && (!user || !isOwner)) {
@@ -141,22 +182,128 @@ const Admin: React.FC = () => {
     }
   };
 
-  const handleAddPoints = async (userId: string, amount: number) => {
+  const handleEditUser = (profile: UserProfile) => {
+    setEditingUser(profile);
+    setEditForm({
+      display_name: profile.display_name,
+      username: profile.username,
+      bio: profile.bio || '',
+      country: profile.country || '',
+      level: profile.level,
+      points: profile.points,
+      ruby: profile.ruby,
+      diamonds: profile.diamonds || 0,
+      is_verified: profile.is_verified,
+      is_vip: profile.is_vip,
+      vip_type: profile.vip_type || '',
+    });
+  };
+
+  const saveUserEdit = async () => {
+    if (!editingUser) return;
+    
     try {
-      const user = users.find(u => u.user_id === userId);
-      if (!user) return;
-      
       const { error } = await supabase
         .from('profiles')
-        .update({ points: user.points + amount })
-        .eq('user_id', userId);
+        .update({
+          display_name: editForm.display_name,
+          username: editForm.username,
+          bio: editForm.bio,
+          country: editForm.country,
+          level: editForm.level,
+          points: editForm.points,
+          ruby: editForm.ruby,
+          diamonds: editForm.diamonds,
+          is_verified: editForm.is_verified,
+          is_vip: editForm.is_vip,
+          vip_type: editForm.is_vip ? (editForm.vip_type as 'gold' | 'diamond') : null,
+        })
+        .eq('user_id', editingUser.user_id);
 
       if (error) throw error;
+      
+      toast.success(lang === 'ar' ? 'تم حفظ التغييرات' : 'Changes saved');
+      setEditingUser(null);
       fetchUsers();
-      toast.success(lang === 'ar' ? `تمت إضافة ${amount} نقطة` : `Added ${amount} points`);
     } catch (error) {
-      console.error('Error adding points:', error);
-      toast.error(lang === 'ar' ? 'فشل إضافة النقاط' : 'Failed to add points');
+      console.error('Error saving user:', error);
+      toast.error(lang === 'ar' ? 'فشل حفظ التغييرات' : 'Failed to save changes');
+    }
+  };
+
+  const handleSendCurrency = async () => {
+    if (!sendingCurrency || currencyForm.amount <= 0) return;
+    
+    try {
+      const profile = users.find(u => u.user_id === sendingCurrency.userId);
+      if (!profile) return;
+
+      const updateData: any = {};
+      if (currencyForm.type === 'points') {
+        updateData.points = profile.points + currencyForm.amount;
+      } else if (currencyForm.type === 'ruby') {
+        updateData.ruby = profile.ruby + currencyForm.amount;
+      } else if (currencyForm.type === 'diamonds') {
+        updateData.diamonds = (profile.diamonds || 0) + currencyForm.amount;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('user_id', sendingCurrency.userId);
+
+      if (error) throw error;
+
+      // Record transaction
+      await supabase.from('transactions').insert({
+        user_id: sendingCurrency.userId,
+        transaction_type: 'admin_gift',
+        currency: currencyForm.type,
+        amount: currencyForm.amount,
+        balance_after: updateData[currencyForm.type],
+        description: `Gift from admin: ${currencyForm.amount} ${currencyForm.type}`,
+      });
+
+      toast.success(
+        lang === 'ar' 
+          ? `تم إرسال ${currencyForm.amount} ${currencyForm.type === 'points' ? 'نقطة' : currencyForm.type === 'ruby' ? 'روبي' : 'ماسة'}`
+          : `Sent ${currencyForm.amount} ${currencyForm.type}`
+      );
+      setSendingCurrency(null);
+      setCurrencyForm({ type: 'points', amount: 0 });
+      fetchUsers();
+    } catch (error) {
+      console.error('Error sending currency:', error);
+      toast.error(lang === 'ar' ? 'فشل الإرسال' : 'Failed to send');
+    }
+  };
+
+  const handleSendNotification = async () => {
+    try {
+      const { error } = await supabase.from('announcements').insert({
+        title_ar: notificationForm.title_ar,
+        title_en: notificationForm.title_en,
+        content_ar: notificationForm.content_ar,
+        content_en: notificationForm.content_en,
+        target_audience: notificationForm.target_audience,
+        created_by: user?.id,
+        is_active: true,
+      });
+
+      if (error) throw error;
+
+      toast.success(lang === 'ar' ? 'تم إرسال الإشعار' : 'Notification sent');
+      setShowNotification(false);
+      setNotificationForm({
+        title_ar: '',
+        title_en: '',
+        content_ar: '',
+        content_en: '',
+        target_audience: 'everyone',
+      });
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      toast.error(lang === 'ar' ? 'فشل إرسال الإشعار' : 'Failed to send notification');
     }
   };
 
@@ -199,6 +346,28 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleSetVIP = async (userId: string, vip: boolean, vipType: 'gold' | 'diamond' | null) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          is_vip: vip,
+          vip_type: vipType,
+          vip_expires_at: vip ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
+        })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      fetchUsers();
+      toast.success(vip 
+        ? (lang === 'ar' ? `تم ترقية إلى VIP ${vipType}` : `Upgraded to VIP ${vipType}`)
+        : (lang === 'ar' ? 'تم إلغاء VIP' : 'VIP removed')
+      );
+    } catch (error) {
+      console.error('Error setting VIP:', error);
+    }
+  };
+
   const filteredUsers = users.filter(u =>
     u.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -214,7 +383,7 @@ const Admin: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 z-50 glass-dark border-b border-border">
         <div className="flex items-center justify-between h-14 px-4">
@@ -225,10 +394,19 @@ const Admin: React.FC = () => {
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-gold" />
               <h1 className="font-bold">
-                {lang === 'ar' ? 'لوحة الإدارة' : 'Admin Panel'}
+                {lang === 'ar' ? 'لوحة المالك' : 'Owner Panel'}
               </h1>
             </div>
           </div>
+          
+          <Button 
+            onClick={() => setShowNotification(true)}
+            className="gradient-primary gap-2"
+            size="sm"
+          >
+            <Bell className="w-4 h-4" />
+            {lang === 'ar' ? 'إشعار' : 'Notify'}
+          </Button>
         </div>
       </header>
 
@@ -353,7 +531,7 @@ const Admin: React.FC = () => {
             </div>
 
             {/* Users List */}
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            <div className="space-y-2 max-h-[500px] overflow-y-auto">
               {loadingData ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -363,11 +541,14 @@ const Admin: React.FC = () => {
                   <div
                     key={profile.id}
                     className={cn(
-                      "flex items-center gap-3 p-3 rounded-lg bg-muted/50",
+                      "flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors",
                       profile.is_banned && "opacity-50"
                     )}
                   >
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
+                    <div 
+                      className="w-12 h-12 rounded-full overflow-hidden bg-muted cursor-pointer"
+                      onClick={() => navigate(`/profile/${profile.user_id}`)}
+                    >
                       {profile.profile_picture ? (
                         <img src={profile.profile_picture} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -381,18 +562,40 @@ const Admin: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <span className="font-medium truncate">{profile.display_name}</span>
                         {profile.is_verified && <BadgeCheck className="w-4 h-4 text-diamond" />}
-                        {profile.is_vip && <Crown className="w-4 h-4 text-gold" />}
+                        {profile.is_vip && (
+                          <Crown className={cn("w-4 h-4", profile.vip_type === 'diamond' ? 'text-diamond' : 'text-gold')} />
+                        )}
                         {profile.is_banned && <Ban className="w-4 h-4 text-destructive" />}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         @{profile.username} • {profile.email}
                       </p>
+                      <div className="flex items-center gap-3 mt-1 text-xs">
+                        <span className="text-gold">💰 {profile.points.toLocaleString()}</span>
+                        <span className="text-ruby">💎 {profile.ruby}</span>
+                        <span className="text-diamond">💠 {profile.diamonds || 0}</span>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gold font-bold">
-                        💰 {profile.points.toLocaleString()}
-                      </span>
+                      {/* Send Currency */}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setSendingCurrency({ userId: profile.user_id, userName: profile.display_name })}
+                        className="text-gold"
+                      >
+                        <Coins className="w-4 h-4" />
+                      </Button>
+
+                      {/* Edit User */}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleEditUser(profile)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -401,14 +604,6 @@ const Admin: React.FC = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleAddPoints(profile.user_id, 100)}>
-                            <Coins className="w-4 h-4 mr-2" />
-                            {lang === 'ar' ? 'إضافة 100 نقطة' : 'Add 100 Points'}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleAddPoints(profile.user_id, 1000)}>
-                            <Coins className="w-4 h-4 mr-2" />
-                            {lang === 'ar' ? 'إضافة 1000 نقطة' : 'Add 1000 Points'}
-                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleVerifyUser(profile.user_id, !profile.is_verified)}>
                             <BadgeCheck className="w-4 h-4 mr-2" />
                             {profile.is_verified
@@ -416,6 +611,22 @@ const Admin: React.FC = () => {
                               : (lang === 'ar' ? 'توثيق الحساب' : 'Verify Account')
                             }
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleSetVIP(profile.user_id, true, 'gold')}>
+                            <Crown className="w-4 h-4 mr-2 text-gold" />
+                            {lang === 'ar' ? 'ترقية VIP ذهبي' : 'Set VIP Gold'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleSetVIP(profile.user_id, true, 'diamond')}>
+                            <Crown className="w-4 h-4 mr-2 text-diamond" />
+                            {lang === 'ar' ? 'ترقية VIP ماسي' : 'Set VIP Diamond'}
+                          </DropdownMenuItem>
+                          {profile.is_vip && (
+                            <DropdownMenuItem onClick={() => handleSetVIP(profile.user_id, false, null)}>
+                              <Crown className="w-4 h-4 mr-2 text-muted-foreground" />
+                              {lang === 'ar' ? 'إلغاء VIP' : 'Remove VIP'}
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => handleBanUser(profile.user_id, !profile.is_banned)}
                             className="text-destructive"
@@ -436,6 +647,197 @@ const Admin: React.FC = () => {
           </CardContent>
         </Card>
       </main>
+
+      {/* Edit User Modal */}
+      <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? `تعديل: ${editingUser?.display_name}` : `Edit: ${editingUser?.display_name}`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{lang === 'ar' ? 'الاسم المعروض' : 'Display Name'}</Label>
+              <Input
+                value={editForm.display_name}
+                onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>{lang === 'ar' ? 'اسم المستخدم' : 'Username'}</Label>
+              <Input
+                value={editForm.username}
+                onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>{lang === 'ar' ? 'النبذة' : 'Bio'}</Label>
+              <Textarea
+                value={editForm.bio}
+                onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>{lang === 'ar' ? 'الدولة' : 'Country'}</Label>
+              <Input
+                value={editForm.country}
+                onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{lang === 'ar' ? 'المستوى' : 'Level'}</Label>
+                <Input
+                  type="number"
+                  value={editForm.level}
+                  onChange={(e) => setEditForm({ ...editForm, level: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <Label>{lang === 'ar' ? 'النقاط' : 'Points'}</Label>
+                <Input
+                  type="number"
+                  value={editForm.points}
+                  onChange={(e) => setEditForm({ ...editForm, points: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <Label>{lang === 'ar' ? 'الروبي' : 'Ruby'}</Label>
+                <Input
+                  type="number"
+                  value={editForm.ruby}
+                  onChange={(e) => setEditForm({ ...editForm, ruby: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <Label>{lang === 'ar' ? 'الماس' : 'Diamonds'}</Label>
+                <Input
+                  type="number"
+                  value={editForm.diamonds}
+                  onChange={(e) => setEditForm({ ...editForm, diamonds: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+            <Button onClick={saveUserEdit} className="w-full gradient-primary">
+              {lang === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Currency Modal */}
+      <Dialog open={!!sendingCurrency} onOpenChange={() => setSendingCurrency(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? `إرسال عملة لـ ${sendingCurrency?.userName}` : `Send currency to ${sendingCurrency?.userName}`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Button
+                variant={currencyForm.type === 'points' ? 'default' : 'outline'}
+                onClick={() => setCurrencyForm({ ...currencyForm, type: 'points' })}
+                className="flex-1 gap-2"
+              >
+                <CircleDollarSign className="w-4 h-4 text-gold" />
+                {lang === 'ar' ? 'نقاط' : 'Points'}
+              </Button>
+              <Button
+                variant={currencyForm.type === 'ruby' ? 'default' : 'outline'}
+                onClick={() => setCurrencyForm({ ...currencyForm, type: 'ruby' })}
+                className="flex-1 gap-2"
+              >
+                <Gem className="w-4 h-4 text-ruby" />
+                {lang === 'ar' ? 'روبي' : 'Ruby'}
+              </Button>
+              <Button
+                variant={currencyForm.type === 'diamonds' ? 'default' : 'outline'}
+                onClick={() => setCurrencyForm({ ...currencyForm, type: 'diamonds' })}
+                className="flex-1 gap-2"
+              >
+                <Diamond className="w-4 h-4 text-diamond" />
+                {lang === 'ar' ? 'ماس' : 'Diamonds'}
+              </Button>
+            </div>
+            <div>
+              <Label>{lang === 'ar' ? 'الكمية' : 'Amount'}</Label>
+              <Input
+                type="number"
+                value={currencyForm.amount}
+                onChange={(e) => setCurrencyForm({ ...currencyForm, amount: parseInt(e.target.value) || 0 })}
+                placeholder="1000"
+              />
+            </div>
+            <div className="flex gap-2">
+              {[100, 500, 1000, 5000, 10000].map((amount) => (
+                <Button
+                  key={amount}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrencyForm({ ...currencyForm, amount })}
+                >
+                  {amount}
+                </Button>
+              ))}
+            </div>
+            <Button onClick={handleSendCurrency} className="w-full gradient-gold text-black gap-2">
+              <Send className="w-4 h-4" />
+              {lang === 'ar' ? 'إرسال' : 'Send'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notification Modal */}
+      <Dialog open={showNotification} onOpenChange={setShowNotification}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? 'إرسال إشعار للجميع' : 'Send Notification to All'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{lang === 'ar' ? 'العنوان (عربي)' : 'Title (Arabic)'}</Label>
+              <Input
+                value={notificationForm.title_ar}
+                onChange={(e) => setNotificationForm({ ...notificationForm, title_ar: e.target.value })}
+                placeholder="عنوان الإشعار..."
+              />
+            </div>
+            <div>
+              <Label>{lang === 'ar' ? 'العنوان (إنجليزي)' : 'Title (English)'}</Label>
+              <Input
+                value={notificationForm.title_en}
+                onChange={(e) => setNotificationForm({ ...notificationForm, title_en: e.target.value })}
+                placeholder="Notification title..."
+              />
+            </div>
+            <div>
+              <Label>{lang === 'ar' ? 'المحتوى (عربي)' : 'Content (Arabic)'}</Label>
+              <Textarea
+                value={notificationForm.content_ar}
+                onChange={(e) => setNotificationForm({ ...notificationForm, content_ar: e.target.value })}
+                placeholder="محتوى الإشعار..."
+              />
+            </div>
+            <div>
+              <Label>{lang === 'ar' ? 'المحتوى (إنجليزي)' : 'Content (English)'}</Label>
+              <Textarea
+                value={notificationForm.content_en}
+                onChange={(e) => setNotificationForm({ ...notificationForm, content_en: e.target.value })}
+                placeholder="Notification content..."
+              />
+            </div>
+            <Button onClick={handleSendNotification} className="w-full gradient-primary gap-2">
+              <Bell className="w-4 h-4" />
+              {lang === 'ar' ? 'إرسال الإشعار' : 'Send Notification'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
