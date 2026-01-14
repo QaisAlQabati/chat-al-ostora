@@ -113,11 +113,18 @@ const GiftModal: React.FC<GiftModalProps> = ({
       if (giftError) throw giftError;
 
       // Add points to receiver
-      await supabase
+      const { data: receiverProfile } = await supabase
         .from('profiles')
-        .update({ points: Math.floor(totalCost * 0.7) })
-        .eq('user_id', receiverId);
-      });
+        .select('points')
+        .eq('user_id', receiverId)
+        .single();
+      
+      if (receiverProfile) {
+        await supabase
+          .from('profiles')
+          .update({ points: receiverProfile.points + Math.floor(totalCost * 0.7) })
+          .eq('user_id', receiverId);
+      }
 
       // Record transaction
       await supabase.from('transactions').insert({
