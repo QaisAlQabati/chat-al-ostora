@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
 import Live from "./pages/Live";
+import LiveRoom from "./pages/LiveRoom";
 import Messages from "./pages/Messages";
 import Explore from "./pages/Explore";
 import Settings from "./pages/Settings";
@@ -31,7 +32,7 @@ const App = () => (
               <Route path="/profile" element={<Profile />} />
               <Route path="/profile/:userId" element={<Profile />} />
               <Route path="/live" element={<Live />} />
-              <Route path="/live/:userId" element={<Live />} />
+              <Route path="/live/:liveId" element={<LiveRoom />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:userId" element={<Messages />} />
               <Route path="/explore" element={<Explore />} />
