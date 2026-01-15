@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import Live from "./pages/Live";
 import LiveRoom from "./pages/LiveRoom";
 import Messages from "./pages/Messages";
+import ChatRoom from "./pages/ChatRoom";
 import Explore from "./pages/Explore";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
@@ -34,7 +35,7 @@ const App = () => (
               <Route path="/live" element={<Live />} />
               <Route path="/live/:liveId" element={<LiveRoom />} />
               <Route path="/messages" element={<Messages />} />
-              <Route path="/messages/:userId" element={<Messages />} />
+              <Route path="/messages/:userId" element={<ChatRoom />} />
               <Route path="/explore" element={<Explore />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={<Admin />} />

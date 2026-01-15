@@ -24,6 +24,7 @@ interface GiftModalProps {
   receiverName: string;
   context?: 'live' | 'profile' | 'chat';
   liveId?: string;
+  onGiftSent?: (giftEmoji: string, quantity: number) => void;
 }
 
 const rarityColors = {
@@ -40,6 +41,7 @@ const GiftModal: React.FC<GiftModalProps> = ({
   receiverName,
   context = 'profile',
   liveId,
+  onGiftSent,
 }) => {
   const { lang } = useLanguage();
   const { profile, user, refreshProfile } = useAuth();
@@ -137,6 +139,12 @@ const GiftModal: React.FC<GiftModalProps> = ({
       });
 
       await refreshProfile();
+      
+      // Call onGiftSent callback if provided
+      if (onGiftSent) {
+        onGiftSent(selectedGift.image_url, quantity);
+      }
+      
       toast.success(
         lang === 'ar'
           ? `تم إرسال ${quantity}x ${selectedGift.name_ar}!`
