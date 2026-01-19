@@ -259,25 +259,40 @@ export type Database = {
       }
       live_room_members: {
         Row: {
+          camera_enabled: boolean | null
           id: string
+          is_guest: boolean | null
+          is_moderator: boolean | null
+          is_muted_by_owner: boolean | null
           is_on_mic: boolean | null
           joined_at: string | null
+          mic_enabled: boolean | null
           mic_position: number | null
           room_id: string
           user_id: string
         }
         Insert: {
+          camera_enabled?: boolean | null
           id?: string
+          is_guest?: boolean | null
+          is_moderator?: boolean | null
+          is_muted_by_owner?: boolean | null
           is_on_mic?: boolean | null
           joined_at?: string | null
+          mic_enabled?: boolean | null
           mic_position?: number | null
           room_id: string
           user_id: string
         }
         Update: {
+          camera_enabled?: boolean | null
           id?: string
+          is_guest?: boolean | null
+          is_moderator?: boolean | null
+          is_muted_by_owner?: boolean | null
           is_on_mic?: boolean | null
           joined_at?: string | null
+          mic_enabled?: boolean | null
           mic_position?: number | null
           room_id?: string
           user_id?: string
@@ -291,6 +306,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      live_settings: {
+        Row: {
+          allow_games: boolean | null
+          allow_gifts: boolean | null
+          allow_music: boolean | null
+          background_url: string | null
+          chat_enabled: boolean | null
+          created_at: string | null
+          id: string
+          is_password_protected: boolean | null
+          max_mic_count: number | null
+          password_hash: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          allow_games?: boolean | null
+          allow_gifts?: boolean | null
+          allow_music?: boolean | null
+          background_url?: string | null
+          chat_enabled?: boolean | null
+          created_at?: string | null
+          id?: string
+          is_password_protected?: boolean | null
+          max_mic_count?: number | null
+          password_hash?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          allow_games?: boolean | null
+          allow_gifts?: boolean | null
+          allow_music?: boolean | null
+          background_url?: string | null
+          chat_enabled?: boolean | null
+          created_at?: string | null
+          id?: string
+          is_password_protected?: boolean | null
+          max_mic_count?: number | null
+          password_hash?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -336,6 +396,39 @@ export type Database = {
           },
         ]
       }
+      mic_invitations: {
+        Row: {
+          created_at: string | null
+          id: string
+          invitee_id: string
+          inviter_id: string
+          mic_position: number | null
+          responded_at: string | null
+          room_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          invitee_id: string
+          inviter_id: string
+          mic_position?: number | null
+          responded_at?: string | null
+          room_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          invitee_id?: string
+          inviter_id?: string
+          mic_position?: number | null
+          responded_at?: string | null
+          room_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       personal_lives: {
         Row: {
           category: string | null
@@ -378,6 +471,57 @@ export type Database = {
           total_points_earned?: number | null
           user_id?: string
           viewer_count?: number | null
+        }
+        Relationships: []
+      }
+      pk_battles: {
+        Row: {
+          battle_type: string
+          created_at: string | null
+          created_by: string
+          duration_seconds: number
+          ended_at: string | null
+          id: string
+          room_id: string
+          started_at: string | null
+          status: string
+          team_a_points: number | null
+          team_a_users: string[] | null
+          team_b_points: number | null
+          team_b_users: string[] | null
+          winner_team: string | null
+        }
+        Insert: {
+          battle_type?: string
+          created_at?: string | null
+          created_by: string
+          duration_seconds?: number
+          ended_at?: string | null
+          id?: string
+          room_id: string
+          started_at?: string | null
+          status?: string
+          team_a_points?: number | null
+          team_a_users?: string[] | null
+          team_b_points?: number | null
+          team_b_users?: string[] | null
+          winner_team?: string | null
+        }
+        Update: {
+          battle_type?: string
+          created_at?: string | null
+          created_by?: string
+          duration_seconds?: number
+          ended_at?: string | null
+          id?: string
+          room_id?: string
+          started_at?: string | null
+          status?: string
+          team_a_points?: number | null
+          team_a_users?: string[] | null
+          team_b_points?: number | null
+          team_b_users?: string[] | null
+          winner_team?: string | null
         }
         Relationships: []
       }
