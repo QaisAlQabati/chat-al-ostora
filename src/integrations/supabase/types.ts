@@ -92,6 +92,166 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_room_members: {
+        Row: {
+          ban_reason: string | null
+          banned_at: string | null
+          banned_by: string | null
+          font_color: string | null
+          font_size: string | null
+          id: string
+          is_banned: boolean | null
+          is_muted: boolean | null
+          joined_at: string | null
+          last_seen_at: string | null
+          muted_until: string | null
+          role: string | null
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          ban_reason?: string | null
+          banned_at?: string | null
+          banned_by?: string | null
+          font_color?: string | null
+          font_size?: string | null
+          id?: string
+          is_banned?: boolean | null
+          is_muted?: boolean | null
+          joined_at?: string | null
+          last_seen_at?: string | null
+          muted_until?: string | null
+          role?: string | null
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          ban_reason?: string | null
+          banned_at?: string | null
+          banned_by?: string | null
+          font_color?: string | null
+          font_size?: string | null
+          id?: string
+          is_banned?: boolean | null
+          is_muted?: boolean | null
+          joined_at?: string | null
+          last_seen_at?: string | null
+          muted_until?: string | null
+          role?: string | null
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_room_members_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_room_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          deleted_by: string | null
+          id: string
+          is_deleted: boolean | null
+          message_type: string | null
+          room_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          message_type?: string | null
+          room_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          message_type?: string | null
+          room_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_room_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_rooms: {
+        Row: {
+          allow_emojis: boolean | null
+          allow_private_messages: boolean | null
+          background_color: string | null
+          background_url: string | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          is_password_protected: boolean | null
+          max_members: number | null
+          name: string
+          password_hash: string | null
+          pinned_message: string | null
+          updated_at: string | null
+          welcome_message: string | null
+        }
+        Insert: {
+          allow_emojis?: boolean | null
+          allow_private_messages?: boolean | null
+          background_color?: string | null
+          background_url?: string | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_password_protected?: boolean | null
+          max_members?: number | null
+          name: string
+          password_hash?: string | null
+          pinned_message?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+        }
+        Update: {
+          allow_emojis?: boolean | null
+          allow_private_messages?: boolean | null
+          background_color?: string | null
+          background_url?: string | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_password_protected?: boolean | null
+          max_members?: number | null
+          name?: string
+          password_hash?: string | null
+          pinned_message?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string | null
