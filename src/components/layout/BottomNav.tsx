@@ -1,16 +1,16 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Compass, Radio, MessageCircle, User } from 'lucide-react';
+import { Home, Compass, Radio, MessageCircle, User, MessagesSquare } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
 const BottomNav: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const location = useLocation();
 
   const navItems = [
     { path: '/', icon: Home, label: t('home') },
-    { path: '/explore', icon: Compass, label: t('explore') },
+    { path: '/rooms', icon: MessagesSquare, label: lang === 'ar' ? 'الغرف' : 'Rooms' },
     { path: '/live', icon: Radio, label: t('live'), special: true },
     { path: '/messages', icon: MessageCircle, label: t('messages') },
     { path: '/profile', icon: User, label: t('profile') },
@@ -20,7 +20,7 @@ const BottomNav: React.FC = () => {
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass-dark border-t border-border/50">
       <div className="flex items-center justify-around h-16 px-2 max-w-lg mx-auto">
         {navItems.map(({ path, icon: Icon, label, special }) => {
-          const isActive = location.pathname === path;
+          const isActive = location.pathname === path || location.pathname.startsWith(path + '/');
           
           return (
             <NavLink

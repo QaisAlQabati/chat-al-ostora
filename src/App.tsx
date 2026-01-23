@@ -12,6 +12,8 @@ import Live from "./pages/Live";
 import LiveRoom from "./pages/LiveRoom";
 import Messages from "./pages/Messages";
 import ChatRoom from "./pages/ChatRoom";
+import ChatRooms from "./pages/ChatRooms";
+import RoomChat from "./pages/RoomChat";
 import Explore from "./pages/Explore";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
@@ -36,6 +38,8 @@ const App = () => (
               <Route path="/live/:liveId" element={<LiveRoom />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:userId" element={<ChatRoom />} />
+              <Route path="/rooms" element={<ChatRooms />} />
+              <Route path="/rooms/:roomId" element={<RoomChat />} />
               <Route path="/explore" element={<Explore />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={<Admin />} />
