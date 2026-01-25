@@ -9,11 +9,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import GiftModal from '@/components/gifts/GiftModal';
 import {
   ChevronLeft, Send, Gift, Image, Mic, MoreVertical,
-  BadgeCheck, Crown, Phone, Video, Smile
+  BadgeCheck, Crown, Phone, Video, Smile, X, Loader2, StopCircle
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface Message {
   id: string;
@@ -36,6 +42,8 @@ interface OtherUser {
   level: number;
 }
 
+const EMOJI_LIST = ['😀', '😂', '😍', '🥰', '😊', '😎', '🤩', '😘', '🤗', '🤔', '😅', '😇', '🥺', '😢', '😭', '😤', '😡', '🤯', '😱', '🙄', '👍', '👎', '❤️', '🔥', '💯', '🎉', '👏', '🙏', '💪', '✨'];
+
 const ChatRoom: React.FC = () => {
   const { userId } = useParams();
   const { lang } = useLanguage();
@@ -49,9 +57,16 @@ const ChatRoom: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showGift, setShowGift] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (userId && user) {
@@ -75,7 +90,6 @@ const ChatRoom: React.FC = () => {
             const newMsg = payload.new as Message;
             setMessages(prev => [...prev, newMsg]);
             
-            // Mark as read if from other user
             if (newMsg.sender_id !== user?.id) {
               markAsRead(newMsg.id);
             }
@@ -97,7 +111,6 @@ const ChatRoom: React.FC = () => {
 
   const initializeChat = async () => {
     try {
-      // Fetch other user's profile
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
         .select('user_id, username, display_name, profile_picture, is_verified, is_vip, status, level')
@@ -107,7 +120,6 @@ const ChatRoom: React.FC = () => {
       if (profileError) throw profileError;
       setOtherUser(userProfile);
 
-      // Find or create conversation
       const { data: existingConv } = await supabase
         .from('conversations')
         .select('id')
@@ -117,7 +129,6 @@ const ChatRoom: React.FC = () => {
       let convId = existingConv?.id;
 
       if (!convId) {
-        // Create new conversation
         const { data: newConv, error: convError } = await supabase
           .from('conversations')
           .insert({
@@ -133,7 +144,6 @@ const ChatRoom: React.FC = () => {
 
       setConversationId(convId);
 
-      // Fetch messages
       const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
         .select('*')
@@ -143,7 +153,6 @@ const ChatRoom: React.FC = () => {
       if (messagesError) throw messagesError;
       setMessages(messagesData || []);
 
-      // Mark unread messages as read
       const unreadIds = (messagesData || [])
         .filter(m => m.sender_id !== user!.id && !m.is_read)
         .map(m => m.id);
@@ -168,11 +177,11 @@ const ChatRoom: React.FC = () => {
       .eq('id', messageId);
   };
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !conversationId || sending) return;
+  const sendMessage = async (content?: string, mediaUrl?: string, messageType: string = 'text') => {
+    const messageContent = content || newMessage.trim();
+    if ((!messageContent && !mediaUrl) || !conversationId || sending) return;
 
     setSending(true);
-    const messageContent = newMessage.trim();
     setNewMessage('');
 
     try {
@@ -181,27 +190,130 @@ const ChatRoom: React.FC = () => {
         .insert({
           conversation_id: conversationId,
           sender_id: user!.id,
-          content: messageContent,
-          message_type: 'text',
+          content: messageContent || null,
+          media_url: mediaUrl || null,
+          message_type: messageType as any,
         });
 
       if (error) throw error;
 
-      // Update conversation last message
       await supabase
         .from('conversations')
         .update({
           last_message_at: new Date().toISOString(),
-          last_message_preview: messageContent.slice(0, 50),
+          last_message_preview: messageType === 'image' ? '📷 صورة' : messageType === 'audio' ? '🎤 رسالة صوتية' : messageContent?.slice(0, 50),
         })
         .eq('id', conversationId);
 
     } catch (error) {
       console.error('Error sending message:', error);
       setNewMessage(messageContent);
+      toast.error(lang === 'ar' ? 'فشل إرسال الرسالة' : 'Failed to send message');
     } finally {
       setSending(false);
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-media')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-media')
+        .getPublicUrl(fileName);
+
+      await sendMessage('', publicUrl, 'image');
+      toast.success(lang === 'ar' ? 'تم إرسال الصورة' : 'Image sent');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error(lang === 'ar' ? 'فشل رفع الصورة' : 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        await uploadAudio(audioBlob);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast.error(lang === 'ar' ? 'فشل تشغيل المايكروفون' : 'Failed to start microphone');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    }
+  };
+
+  const uploadAudio = async (audioBlob: Blob) => {
+    if (!user) return;
+
+    try {
+      const fileName = `${user.id}/${Date.now()}.webm`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-media')
+        .upload(fileName, audioBlob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-media')
+        .getPublicUrl(fileName);
+
+      await sendMessage('', publicUrl, 'audio');
+      toast.success(lang === 'ar' ? 'تم إرسال الرسالة الصوتية' : 'Voice message sent');
+    } catch (error) {
+      console.error('Error uploading audio:', error);
+      toast.error(lang === 'ar' ? 'فشل إرسال الرسالة الصوتية' : 'Failed to send voice message');
+    }
+  };
+
+  const insertEmoji = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+    inputRef.current?.focus();
   };
 
   const formatTime = (date: string) => {
@@ -209,6 +321,12 @@ const ChatRoom: React.FC = () => {
       addSuffix: false,
       locale: lang === 'ar' ? ar : enUS,
     });
+  };
+
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -263,9 +381,9 @@ const ChatRoom: React.FC = () => {
               </div>
               <div className={cn(
                 "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card",
-                otherUser.status === 'online' ? 'bg-status-online' :
-                otherUser.status === 'in_live' ? 'bg-status-live' :
-                'bg-status-offline'
+                otherUser.status === 'online' ? 'bg-green-500' :
+                otherUser.status === 'in_live' ? 'bg-red-500' :
+                'bg-gray-500'
               )} />
             </div>
 
@@ -275,10 +393,10 @@ const ChatRoom: React.FC = () => {
                   {otherUser.display_name}
                 </span>
                 {otherUser.is_verified && (
-                  <BadgeCheck className="w-4 h-4 text-diamond shrink-0" />
+                  <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />
                 )}
                 {otherUser.is_vip && (
-                  <Crown className="w-4 h-4 text-gold shrink-0" />
+                  <Crown className="w-4 h-4 text-yellow-500 shrink-0" />
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -292,10 +410,10 @@ const ChatRoom: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => toast.info(lang === 'ar' ? 'قريباً' : 'Coming soon')}>
               <Phone className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => toast.info(lang === 'ar' ? 'قريباً' : 'Coming soon')}>
               <Video className="w-5 h-5" />
             </Button>
             <Button variant="ghost" size="icon">
@@ -368,12 +486,18 @@ const ChatRoom: React.FC = () => {
                   "max-w-[75%] flex flex-col",
                   isOwn ? "items-end" : "items-start"
                 )}>
-                  {message.media_url && (
+                  {message.message_type === 'image' && message.media_url && (
                     <img
                       src={message.media_url}
                       alt=""
-                      className="max-w-full rounded-2xl mb-1"
+                      className="max-w-full rounded-2xl mb-1 max-h-64 object-cover"
                     />
+                  )}
+
+                  {message.message_type === 'audio' && message.media_url && (
+                    <audio controls className="max-w-full mb-1">
+                      <source src={message.media_url} type="audio/webm" />
+                    </audio>
                   )}
                   
                   {message.content && (
@@ -402,51 +526,112 @@ const ChatRoom: React.FC = () => {
 
       {/* Input */}
       <div className="sticky bottom-0 bg-card border-t border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="shrink-0"
-            onClick={() => setShowGift(true)}
-          >
-            <Gift className="w-5 h-5 text-gold" />
-          </Button>
-
-          <Button variant="ghost" size="icon" className="shrink-0">
-            <Image className="w-5 h-5" />
-          </Button>
-
-          <div className="flex-1 relative">
-            <Input
-              ref={inputRef}
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder={lang === 'ar' ? 'اكتب رسالة...' : 'Type a message...'}
-              className="pr-10"
-            />
+        {isRecording ? (
+          <div className="flex items-center gap-3">
+            <div className="flex-1 flex items-center gap-2 bg-destructive/10 rounded-full px-4 py-2">
+              <div className="w-3 h-3 bg-destructive rounded-full animate-pulse" />
+              <span className="text-sm font-medium">{formatRecordingTime(recordingTime)}</span>
+              <span className="text-sm text-muted-foreground">
+                {lang === 'ar' ? 'جاري التسجيل...' : 'Recording...'}
+              </span>
+            </div>
+            <Button
+              size="icon"
+              variant="destructive"
+              onClick={stopRecording}
+              className="shrink-0"
+            >
+              <StopCircle className="w-5 h-5" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2"
+              className="shrink-0"
+              onClick={() => setShowGift(true)}
             >
-              <Smile className="w-5 h-5 text-muted-foreground" />
+              <Gift className="w-5 h-5 text-yellow-500" />
             </Button>
+
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="shrink-0"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={uploadingImage}
+            >
+              {uploadingImage ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Image className="w-5 h-5" />
+              )}
+            </Button>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+
+            <div className="flex-1 relative">
+              <Input
+                ref={inputRef}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder={lang === 'ar' ? 'اكتب رسالة...' : 'Type a message...'}
+                className="pr-10"
+              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                  >
+                    <Smile className="w-5 h-5 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="end">
+                  <div className="grid grid-cols-6 gap-1">
+                    {EMOJI_LIST.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => insertEmoji(emoji)}
+                        className="text-xl p-2 hover:bg-muted rounded transition-colors"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {newMessage.trim() ? (
+              <Button
+                size="icon"
+                onClick={() => sendMessage()}
+                disabled={sending}
+                className="shrink-0 gradient-primary"
+              >
+                <Send className="w-5 h-5" />
+              </Button>
+            ) : (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="shrink-0"
+                onClick={startRecording}
+              >
+                <Mic className="w-5 h-5" />
+              </Button>
+            )}
           </div>
-
-          <Button
-            size="icon"
-            onClick={sendMessage}
-            disabled={!newMessage.trim() || sending}
-            className="shrink-0 gradient-primary"
-          >
-            <Send className="w-5 h-5" />
-          </Button>
-
-          <Button variant="ghost" size="icon" className="shrink-0">
-            <Mic className="w-5 h-5" />
-          </Button>
-        </div>
+        )}
       </div>
 
       {/* Gift Modal */}

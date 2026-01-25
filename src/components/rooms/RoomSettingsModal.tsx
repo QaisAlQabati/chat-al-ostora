@@ -30,6 +30,8 @@ interface Room {
   welcome_message: string | null;
   pinned_message: string | null;
   created_by: string;
+  is_password_protected?: boolean;
+  password_hash?: string | null;
 }
 
 interface RoomSettingsModalProps {
@@ -56,6 +58,8 @@ const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
   const [backgroundColor, setBackgroundColor] = useState(room.background_color);
   const [welcomeMessage, setWelcomeMessage] = useState(room.welcome_message || '');
   const [pinnedMessage, setPinnedMessage] = useState(room.pinned_message || '');
+  const [isPasswordProtected, setIsPasswordProtected] = useState(room.is_password_protected || false);
+  const [password, setPassword] = useState(room.password_hash || '');
   const [saving, setSaving] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -110,6 +114,8 @@ const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
           background_color: backgroundColor,
           welcome_message: welcomeMessage.trim() || null,
           pinned_message: pinnedMessage.trim() || null,
+          is_password_protected: isPasswordProtected,
+          password_hash: isPasswordProtected ? password : null,
         })
         .eq('id', room.id);
 
@@ -278,7 +284,24 @@ const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
               />
             </div>
 
-            {/* Delete Room */}
+            {/* Password Protection */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>{lang === 'ar' ? 'حماية بكلمة سر' : 'Password Protection'}</Label>
+                <Switch
+                  checked={isPasswordProtected}
+                  onCheckedChange={setIsPasswordProtected}
+                />
+              </div>
+              {isPasswordProtected && (
+                <Input
+                  type="text"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={lang === 'ar' ? 'أدخل كلمة السر...' : 'Enter password...'}
+                />
+              )}
+            </div>
             <div className="pt-6 border-t border-border">
               <Button
                 variant="destructive"
