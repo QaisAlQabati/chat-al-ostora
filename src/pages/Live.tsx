@@ -73,7 +73,9 @@ const Live: React.FC = () => {
         video: cameraEnabled,
         audio: micEnabled,
       });
-      setStream(mediaStream);
+      
+      // Store stream temporarily but stop it before navigating
+      mediaStream.getTracks().forEach(track => track.stop());
 
       // Update database
       const { error } = await supabase
@@ -88,8 +90,10 @@ const Live: React.FC = () => {
 
       if (error) throw error;
 
-      setIsLive(true);
       toast.success(lang === 'ar' ? 'بدأ البث المباشر!' : 'Live stream started!');
+      
+      // Navigate to the live room
+      navigate(`/live/${user.id}`);
     } catch (error: any) {
       console.error('Error starting live:', error);
       if (error.name === 'NotAllowedError') {

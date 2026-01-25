@@ -60,16 +60,16 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, on
     setUploadingAvatar(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
+        .from('profile-pictures')
         .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
+        .from('profile-pictures')
         .getPublicUrl(fileName);
 
       await supabase
@@ -94,16 +94,16 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, on
     setUploadingCover(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/cover.${fileExt}`;
+      const fileName = `${user.id}/cover-${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('covers')
+        .from('profile-backgrounds')
         .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('covers')
+        .from('profile-backgrounds')
         .getPublicUrl(fileName);
 
       await supabase

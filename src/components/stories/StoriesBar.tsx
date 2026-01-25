@@ -48,23 +48,30 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ onAddStory, onViewStory }) => {
 
   const fetchStories = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch stories first
+      const { data: storiesData, error: storiesError } = await supabase
         .from('stories')
-        .select(`
-          *,
-          profile:profiles!stories_user_id_fkey(
-            username,
-            display_name,
-            profile_picture,
-            is_verified,
-            is_vip
-          )
-        `)
+        .select('*')
         .eq('is_active', true)
         .gte('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (storiesError) throw storiesError;
+
+      // Fetch profiles for each story
+      const storiesWithProfiles = await Promise.all(
+        (storiesData || []).map(async (story) => {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('username, display_name, profile_picture, is_verified, is_vip')
+            .eq('user_id', story.user_id)
+            .single();
+          
+          return { ...story, profile: profileData };
+        })
+      );
+
+      const data = storiesWithProfiles;
 
       // Group stories by user
       const grouped = (data || []).reduce((acc: Record<string, GroupedStory>, story: any) => {
