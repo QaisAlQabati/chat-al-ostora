@@ -1137,11 +1137,60 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          can_send_media: boolean | null
+          created_at: string | null
+          font_color: string | null
+          id: string
+          name_color: string | null
+          name_glow: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          can_send_media?: boolean | null
+          created_at?: string | null
+          font_color?: string | null
+          id?: string
+          name_color?: string | null
+          name_glow?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          can_send_media?: boolean | null
+          created_at?: string | null
+          font_color?: string | null
+          id?: string
+          name_color?: string | null
+          name_glow?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      can_manage_user: {
+        Args: { _manager_id: string; _target_id: string }
+        Returns: boolean
+      }
+      get_role_level: {
+        Args: { _role: Database["public"]["Enums"]["user_role"] }
+        Returns: number
+      }
+      get_user_max_role_level: { Args: { _user_id: string }; Returns: number }
+      has_min_role: {
+        Args: {
+          _min_role: Database["public"]["Enums"]["user_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]

@@ -186,6 +186,21 @@ export const translations = {
     manageRooms: 'Manage Rooms',
     reports: 'Reports',
     announcements: 'Announcements',
+    
+    // Roles
+    member: 'Member',
+    vipMember: 'VIP Member',
+    moderator: 'Moderator',
+    adminRole: 'Admin',
+    superAdmin: 'Super Admin',
+    siteOwner: 'Site Owner',
+    
+    // Permissions
+    changeEmail: 'Change Email',
+    changePassword: 'Change Password',
+    accountSettings: 'Account Settings',
+    chatSettings: 'Chat Settings',
+    yourPermissions: 'Your Permissions',
   },
 };
 

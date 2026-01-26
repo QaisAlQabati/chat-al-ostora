@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { BadgeCheck, Crown, Edit, MessageCircle, Gift, UserPlus, UserCheck, Shield } from 'lucide-react';
+import { BadgeCheck, Crown, Edit, MessageCircle, Gift, UserPlus, UserCheck, Shield, Trophy } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import RoleBadge from '@/components/common/RoleBadge';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface ProfileHeaderProps {
   profile: {
@@ -50,11 +52,12 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 }) => {
   const { t, lang } = useLanguage();
   const { user, isOwner } = useAuth();
+  const { maxRole, roleInfo, permissions } = useUserRole(profile.user_id);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [localStats, setLocalStats] = useState(stats);
 
-  const isProfileOwner = profile.email === OWNER_EMAIL;
+  const isProfileOwner = profile.email === OWNER_EMAIL || permissions.isOwner;
 
   useEffect(() => {
     if (user && !isOwnProfile) {
@@ -152,8 +155,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           {/* Badges */}
           <div className="absolute -bottom-1 right-0 flex gap-1">
             {isProfileOwner && (
-              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center" title={lang === 'ar' ? 'مالك التطبيق' : 'App Owner'}>
-                <Shield className="w-4 h-4 text-white" />
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg" title={lang === 'ar' ? 'مالك الموقع' : 'Site Owner'}>
+                <Trophy className="w-4 h-4 text-white" />
               </div>
             )}
             {profile.is_verified && (
@@ -171,15 +174,17 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
         {/* Name & Username */}
         <div className="mt-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold">
               {profile.display_name}
             </h1>
             {isProfileOwner && (
-              <span className="px-2 py-0.5 text-xs font-bold gradient-primary text-white rounded-full">
-                {lang === 'ar' ? 'المالك' : 'Owner'}
+              <span className="px-2 py-0.5 text-xs font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 text-black rounded-full flex items-center gap-1">
+                <Trophy className="w-3 h-3" />
+                {lang === 'ar' ? 'مالك الموقع' : 'Site Owner'}
               </span>
             )}
+            <RoleBadge role={maxRole} size="sm" />
           </div>
           <p className="text-muted-foreground">@{profile.username}</p>
         </div>
