@@ -10,11 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Users, Radio, MessageCircle, Gift, Shield, 
   TrendingUp, Search, ChevronLeft, Crown, BadgeCheck,
   MoreVertical, Ban, Coins, Award, Trash2, Edit, Bell,
-  Send, Gem, CircleDollarSign, Diamond, Plus
+  Send, Gem, CircleDollarSign, Diamond, Plus, UserCog
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -22,9 +23,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import RoleBadge from '@/components/common/RoleBadge';
+import { UserRole, ROLE_HIERARCHY } from '@/hooks/useUserRole';
 
 interface AdminStats {
   totalUsers: number;
@@ -368,6 +374,64 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleSetRole = async (userId: string, role: UserRole) => {
+    try {
+      // First check if user already has this role
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('role', role)
+        .maybeSingle();
+
+      if (existingRole) {
+        toast.info(lang === 'ar' ? 'المستخدم لديه هذه الرتبة بالفعل' : 'User already has this role');
+        return;
+      }
+
+      // Add the new role
+      const { error } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: userId,
+          role: role,
+          assigned_by: user?.id,
+        });
+
+      if (error) throw error;
+
+      toast.success(
+        lang === 'ar' 
+          ? `تم منح رتبة ${ROLE_HIERARCHY[role]?.name_ar || role}`
+          : `Granted ${ROLE_HIERARCHY[role]?.name_en || role} role`
+      );
+    } catch (error) {
+      console.error('Error setting role:', error);
+      toast.error(lang === 'ar' ? 'فشل تعيين الرتبة' : 'Failed to set role');
+    }
+  };
+
+  const handleRemoveRole = async (userId: string, role: UserRole) => {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId)
+        .eq('role', role);
+
+      if (error) throw error;
+
+      toast.success(
+        lang === 'ar' 
+          ? `تم سحب رتبة ${ROLE_HIERARCHY[role]?.name_ar || role}`
+          : `Removed ${ROLE_HIERARCHY[role]?.name_en || role} role`
+      );
+    } catch (error) {
+      console.error('Error removing role:', error);
+      toast.error(lang === 'ar' ? 'فشل سحب الرتبة' : 'Failed to remove role');
+    }
+  };
+
   const filteredUsers = users.filter(u =>
     u.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -626,6 +690,53 @@ const Admin: React.FC = () => {
                               {lang === 'ar' ? 'إلغاء VIP' : 'Remove VIP'}
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuSeparator />
+                          
+                          {/* Role Management Submenu */}
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <UserCog className="w-4 h-4 mr-2" />
+                              {lang === 'ar' ? 'إدارة الرتب' : 'Manage Roles'}
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'vip')}>
+                                <span className="mr-2">⭐</span>
+                                {lang === 'ar' ? 'عضو مميز (VIP)' : 'VIP Member'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'moderator')}>
+                                <span className="mr-2">🛡️</span>
+                                {lang === 'ar' ? 'مشرف' : 'Moderator'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'admin')}>
+                                <span className="mr-2">⚙️</span>
+                                {lang === 'ar' ? 'إدارة' : 'Admin'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'super_admin')}>
+                                <span className="mr-2">👑</span>
+                                {lang === 'ar' ? 'إدارة عليا' : 'Super Admin'}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleRemoveRole(profile.user_id, 'vip')}
+                                className="text-destructive"
+                              >
+                                {lang === 'ar' ? 'سحب VIP' : 'Remove VIP'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleRemoveRole(profile.user_id, 'moderator')}
+                                className="text-destructive"
+                              >
+                                {lang === 'ar' ? 'سحب المشرف' : 'Remove Moderator'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleRemoveRole(profile.user_id, 'admin')}
+                                className="text-destructive"
+                              >
+                                {lang === 'ar' ? 'سحب الإدارة' : 'Remove Admin'}
+                              </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => handleBanUser(profile.user_id, !profile.is_banned)}
