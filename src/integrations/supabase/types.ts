@@ -1159,7 +1159,14 @@ export type Database = {
       gender_type: "male" | "female" | "other" | "prefer_not_to_say"
       gift_rarity: "common" | "rare" | "epic" | "legendary"
       message_type: "text" | "image" | "video" | "audio" | "gift"
-      user_role: "user" | "moderator" | "admin" | "super_owner"
+      user_role:
+        | "user"
+        | "moderator"
+        | "admin"
+        | "super_owner"
+        | "vip"
+        | "super_admin"
+        | "owner"
       user_status: "online" | "offline" | "busy" | "in_live"
       vip_type: "gold" | "diamond"
     }
@@ -1292,7 +1299,15 @@ export const Constants = {
       gender_type: ["male", "female", "other", "prefer_not_to_say"],
       gift_rarity: ["common", "rare", "epic", "legendary"],
       message_type: ["text", "image", "video", "audio", "gift"],
-      user_role: ["user", "moderator", "admin", "super_owner"],
+      user_role: [
+        "user",
+        "moderator",
+        "admin",
+        "super_owner",
+        "vip",
+        "super_admin",
+        "owner",
+      ],
       user_status: ["online", "offline", "busy", "in_live"],
       vip_type: ["gold", "diamond"],
     },
