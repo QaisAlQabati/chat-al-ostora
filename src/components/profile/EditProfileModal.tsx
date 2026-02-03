@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { X, Camera, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Camera, Loader2, Palette } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -35,6 +36,12 @@ const countries = [
   { code: 'IQ', name_ar: 'العراق', name_en: 'Iraq' },
 ];
 
+const colorPresets = [
+  '#ffffff', '#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', 
+  '#54a0ff', '#5f27cd', '#00d2d3', '#1dd1a1', '#ff9f43',
+  '#ee5253', '#10ac84', '#2e86de', '#f368e0', '#ff6b6b',
+];
+
 const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { lang } = useLanguage();
   const { profile, user, refreshProfile } = useAuth();
@@ -48,8 +55,36 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, on
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   
+  // Chat customization
+  const [nameColor, setNameColor] = useState('#ffffff');
+  const [fontColor, setFontColor] = useState('#ffffff');
+  const [nameBackground, setNameBackground] = useState('transparent');
+  const [nameGlow, setNameGlow] = useState(false);
+  
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // Load user settings
+  useEffect(() => {
+    if (user && isOpen) {
+      loadSettings();
+    }
+  }, [user, isOpen]);
+
+  const loadSettings = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (data) {
+      setNameColor(data.name_color || '#ffffff');
+      setFontColor(data.font_color || '#ffffff');
+      setNameGlow(data.name_glow || false);
+    }
+  };
 
   if (!isOpen || !profile) return null;
 
@@ -126,6 +161,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, on
 
     setSaving(true);
     try {
+      // Update profile
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -138,6 +174,18 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, on
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      // Update or create user settings
+      const { error: settingsError } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: user.id,
+          name_color: nameColor,
+          font_color: fontColor,
+          name_glow: nameGlow,
+        }, { onConflict: 'user_id' });
+
+      if (settingsError) console.error('Settings error:', settingsError);
 
       await refreshProfile();
       toast.success(lang === 'ar' ? 'تم حفظ التغييرات!' : 'Changes saved!');
@@ -291,6 +339,119 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, on
               onChange={(e) => setCity(e.target.value)}
               maxLength={100}
             />
+          </div>
+
+          {/* Chat Customization Section */}
+          <div className="border-t border-border pt-6 mt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Palette className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold">
+                {lang === 'ar' ? 'تخصيص الدردشة' : 'Chat Customization'}
+              </h3>
+            </div>
+
+            {/* Name Color */}
+            <div className="space-y-3 mb-4">
+              <Label>{lang === 'ar' ? 'لون الاسم' : 'Name Color'}</Label>
+              <div className="flex flex-wrap gap-2">
+                {colorPresets.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNameColor(color)}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      nameColor === color ? 'border-primary scale-110' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+                <Input
+                  type="color"
+                  value={nameColor}
+                  onChange={(e) => setNameColor(e.target.value)}
+                  className="w-8 h-8 p-0 border-0 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Font Color */}
+            <div className="space-y-3 mb-4">
+              <Label>{lang === 'ar' ? 'لون الخط' : 'Font Color'}</Label>
+              <div className="flex flex-wrap gap-2">
+                {colorPresets.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setFontColor(color)}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      fontColor === color ? 'border-primary scale-110' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+                <Input
+                  type="color"
+                  value={fontColor}
+                  onChange={(e) => setFontColor(e.target.value)}
+                  className="w-8 h-8 p-0 border-0 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Name Background */}
+            <div className="space-y-3 mb-4">
+              <Label>{lang === 'ar' ? 'خلفية الاسم' : 'Name Background'}</Label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNameBackground('transparent')}
+                  className={`w-8 h-8 rounded-full border-2 transition-all bg-muted ${
+                    nameBackground === 'transparent' ? 'border-primary scale-110' : 'border-transparent'
+                  }`}
+                >
+                  <span className="text-xs">✕</span>
+                </button>
+                {colorPresets.slice(0, 10).map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNameBackground(color)}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      nameBackground === color ? 'border-primary scale-110' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Name Glow */}
+            <div className="flex items-center justify-between">
+              <Label>{lang === 'ar' ? 'توهج الاسم' : 'Name Glow'}</Label>
+              <Switch checked={nameGlow} onCheckedChange={setNameGlow} />
+            </div>
+
+            {/* Preview */}
+            <div className="mt-4 p-4 rounded-lg bg-muted/50">
+              <Label className="mb-2 block">{lang === 'ar' ? 'معاينة' : 'Preview'}</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">•••</span>
+                <span
+                  className="px-2 py-0.5 rounded-md font-medium"
+                  style={{ 
+                    backgroundColor: nameBackground !== 'transparent' ? nameBackground : 'hsl(var(--muted))',
+                    color: nameColor,
+                    textShadow: nameGlow ? `0 0 10px ${nameColor}` : 'none',
+                  }}
+                >
+                  {displayName || 'Your Name'}
+                </span>
+                <span className="text-muted-foreground">:</span>
+                <span style={{ color: fontColor }}>
+                  {lang === 'ar' ? 'مرحباً بالجميع!' : 'Hello everyone!'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
