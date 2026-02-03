@@ -22,6 +22,8 @@ interface Profile {
   vip_type: string | null;
   is_verified: boolean;
   is_banned: boolean;
+  ban_reason: string | null;
+  ban_expires_at: string | null;
   status: string;
 }
 
