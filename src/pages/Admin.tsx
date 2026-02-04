@@ -286,19 +286,20 @@ const Admin: React.FC = () => {
 
   const handleSendNotification = async () => {
     try {
-      const { error } = await supabase.from('announcements').insert({
+      // Insert into new notifications table
+      const { error } = await supabase.from('notifications').insert({
         title_ar: notificationForm.title_ar,
         title_en: notificationForm.title_en,
         content_ar: notificationForm.content_ar,
         content_en: notificationForm.content_en,
-        target_audience: notificationForm.target_audience,
+        type: 'global',
+        user_id: null, // null = global notification
         created_by: user?.id,
-        is_active: true,
       });
 
       if (error) throw error;
 
-      toast.success(lang === 'ar' ? 'تم إرسال الإشعار' : 'Notification sent');
+      toast.success(lang === 'ar' ? 'تم إرسال الإشعار للجميع' : 'Notification sent to everyone');
       setShowNotification(false);
       setNotificationForm({
         title_ar: '',

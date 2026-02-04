@@ -25,6 +25,9 @@ interface Profile {
   ban_reason: string | null;
   ban_expires_at: string | null;
   status: string;
+  private_chat_setting?: string;
+  private_chat_password?: string | null;
+  jailed_in_room?: string | null;
 }
 
 interface AuthContextType {

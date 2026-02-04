@@ -7,10 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { 
   Plus, Search, Users, Lock, MessageSquare, 
-  Crown, Settings, ChevronLeft 
+  Pin, ChevronLeft 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import CreateRoomModal from '@/components/rooms/CreateRoomModal';
@@ -24,6 +23,7 @@ interface ChatRoom {
   background_url: string | null;
   background_color: string;
   is_password_protected: boolean;
+  is_pinned: boolean;
   max_members: number;
   created_by: string;
   created_at: string;
@@ -49,16 +49,19 @@ const ChatRooms: React.FC = () => {
     }
     fetchRooms();
     
-    // Subscribe to room changes
-    const channel = supabase
-      .channel('chat_rooms_changes')
+    // Subscribe to room and member changes for real-time updates
+    const roomChannel = supabase
+      .channel('chat_rooms_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms' }, () => {
+        fetchRooms();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_room_members' }, () => {
         fetchRooms();
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(roomChannel);
     };
   }, [user]);
 
@@ -67,8 +70,7 @@ const ChatRooms: React.FC = () => {
       const { data, error } = await supabase
         .from('chat_rooms')
         .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .eq('is_active', true);
 
       if (error) throw error;
 
@@ -84,6 +86,13 @@ const ChatRooms: React.FC = () => {
           return { ...room, member_count: count || 0 };
         })
       );
+
+      // Sort: pinned first, then by member count (descending)
+      roomsWithCounts.sort((a, b) => {
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+        return (b.member_count || 0) - (a.member_count || 0);
+      });
 
       setRooms(roomsWithCounts);
     } catch (error) {
@@ -234,11 +243,20 @@ const ChatRooms: React.FC = () => {
                   }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
+                  {room.is_pinned && (
+                    <div className="absolute top-2 right-2 bg-primary/80 rounded-full p-1">
+                      <Pin className="w-3 h-3 text-primary-foreground" />
+                    </div>
+                  )}
                 </div>
                 <CardContent className="p-4 -mt-8 relative z-10">
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
-                      {room.icon}
+                    <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl overflow-hidden">
+                      {room.background_url ? (
+                        <img src={room.background_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        room.icon
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -255,7 +273,7 @@ const ChatRooms: React.FC = () => {
                       <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Users className="w-3 h-3" />
-                          {room.member_count}/{room.max_members}
+                          <span className="font-bold text-primary">{room.member_count}</span>/{room.max_members}
                         </span>
                       </div>
                     </div>
