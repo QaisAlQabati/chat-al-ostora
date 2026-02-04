@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   ChevronLeft, Send, Settings, Users, UserPlus, Home,
-  MoreVertical, Trash2, Pin, Youtube, Smile, Image, Mic
+  MoreVertical, Trash2, Pin, Youtube, Smile, Image, Mic, Layers
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ import ChatMessage from '@/components/chat/ChatMessage';
 import OnlineUsersSidebar from '@/components/chat/OnlineUsersSidebar';
 import YouTubePlayer from '@/components/chat/YouTubePlayer';
 import UserProfileModal from '@/components/profile/UserProfileModal';
+import RoomSwitcher from '@/components/rooms/RoomSwitcher';
 
 interface Message {
   id: string;
@@ -50,6 +51,7 @@ interface Room {
   welcome_message: string | null;
   pinned_message: string | null;
   created_by: string;
+  is_pinned: boolean;
 }
 
 interface Member {
@@ -58,6 +60,8 @@ interface Member {
   is_muted: boolean;
   is_banned: boolean;
 }
+
+const MESSAGES_PER_PAGE = 30;
 
 const RoomChat: React.FC = () => {
   const { roomId } = useParams();
@@ -71,6 +75,8 @@ const RoomChat: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [myMembership, setMyMembership] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [showYouTube, setShowYouTube] = useState(false);
@@ -79,7 +85,44 @@ const RoomChat: React.FC = () => {
   const [memberCount, setMemberCount] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const oldestMessageId = useRef<string | null>(null);
+
+  // Role level helper
+  const getRoleLevelNum = (role: string): number => {
+    const levels: Record<string, number> = {
+      owner: 6, super_owner: 6, super_admin: 5, admin: 4,
+      moderator: 3, vip: 2, user: 1
+    };
+    return levels[role] || 1;
+  };
+
+  // Fetch sender info helper
+  const fetchSenderInfo = async (senderId: string) => {
+    const { data: sender } = await supabase
+      .from('profiles')
+      .select('display_name, profile_picture, is_verified, is_vip, vip_type')
+      .eq('user_id', senderId)
+      .single();
+
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', senderId);
+
+    let maxRole = 'user';
+    let maxLevel = 1;
+    (roles || []).forEach((r: any) => {
+      const roleLevel = getRoleLevelNum(r.role);
+      if (roleLevel > maxLevel) {
+        maxLevel = roleLevel;
+        maxRole = r.role;
+      }
+    });
+
+    return { sender, senderRole: maxRole };
+  };
 
   useEffect(() => {
     if (!user || !roomId) {
@@ -88,7 +131,7 @@ const RoomChat: React.FC = () => {
     }
 
     fetchRoom();
-    fetchMessages();
+    fetchLatestMessages();
     fetchMyMembership();
 
     // Subscribe to new messages
@@ -101,49 +144,45 @@ const RoomChat: React.FC = () => {
         filter: `room_id=eq.${roomId}`,
       }, async (payload) => {
         const newMsg = payload.new as Message;
-        
-        // Fetch sender info
-        const { data: sender } = await supabase
-          .from('profiles')
-          .select('display_name, profile_picture, is_verified, is_vip, vip_type')
-          .eq('user_id', newMsg.sender_id)
-          .single();
+        const { sender, senderRole } = await fetchSenderInfo(newMsg.sender_id);
+        setMessages(prev => [...prev, { ...newMsg, sender, senderRole }]);
+      })
+      .subscribe();
 
-        // Fetch sender role
-        const { data: roles } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', newMsg.sender_id);
-
-        let maxRole = 'user';
-        let maxLevel = 1;
-        (roles || []).forEach((r: any) => {
-          const roleLevel = getRoleLevelNum(r.role);
-          if (roleLevel > maxLevel) {
-            maxLevel = roleLevel;
-            maxRole = r.role;
-          }
-        });
-
-        setMessages(prev => [...prev, { ...newMsg, sender, senderRole: maxRole }]);
+    // Subscribe to member changes for live count
+    const memberChannel = supabase
+      .channel(`room_members_${roomId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_room_members',
+        filter: `room_id=eq.${roomId}`,
+      }, () => {
+        fetchMemberCount();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(memberChannel);
     };
   }, [user, roomId]);
 
+  // Scroll to bottom on new messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length > 0 && !loadingMore) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, loadingMore]);
 
-  const getRoleLevelNum = (role: string): number => {
-    const levels: Record<string, number> = {
-      owner: 6, super_owner: 6, super_admin: 5, admin: 4,
-      moderator: 3, vip: 2, user: 1
-    };
-    return levels[role] || 1;
+  const fetchMemberCount = async () => {
+    if (!roomId) return;
+    const { count } = await supabase
+      .from('chat_room_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('room_id', roomId)
+      .eq('is_banned', false);
+    setMemberCount(count || 0);
   };
 
   const fetchRoom = async () => {
@@ -162,17 +201,91 @@ const RoomChat: React.FC = () => {
     }
 
     setRoom(data);
-
-    // Get member count
-    const { count } = await supabase
-      .from('chat_room_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('room_id', roomId)
-      .eq('is_banned', false);
-
-    setMemberCount(count || 0);
+    await fetchMemberCount();
     setLoading(false);
   };
+
+  // Smart message loading - load latest first
+  const fetchLatestMessages = async () => {
+    if (!roomId) return;
+
+    const { data, error } = await supabase
+      .from('chat_room_messages')
+      .select('*')
+      .eq('room_id', roomId)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+      .limit(MESSAGES_PER_PAGE);
+
+    if (error) {
+      console.error('Error fetching messages:', error);
+      return;
+    }
+
+    // Reverse to show oldest first, but we loaded newest first
+    const reversedData = (data || []).reverse();
+    
+    if (reversedData.length > 0) {
+      oldestMessageId.current = reversedData[0].id;
+    }
+    setHasMoreMessages((data || []).length === MESSAGES_PER_PAGE);
+
+    // Fetch sender info for each message
+    const messagesWithSenders = await Promise.all(
+      reversedData.map(async (msg) => {
+        const { sender, senderRole } = await fetchSenderInfo(msg.sender_id);
+        return { ...msg, sender, senderRole };
+      })
+    );
+
+    setMessages(messagesWithSenders);
+  };
+
+  // Load older messages when scrolling up
+  const loadMoreMessages = useCallback(async () => {
+    if (!roomId || loadingMore || !hasMoreMessages || messages.length === 0) return;
+
+    setLoadingMore(true);
+    const firstMessage = messages[0];
+
+    const { data, error } = await supabase
+      .from('chat_room_messages')
+      .select('*')
+      .eq('room_id', roomId)
+      .eq('is_deleted', false)
+      .lt('created_at', firstMessage.created_at)
+      .order('created_at', { ascending: false })
+      .limit(MESSAGES_PER_PAGE);
+
+    if (error) {
+      console.error('Error loading more messages:', error);
+      setLoadingMore(false);
+      return;
+    }
+
+    if ((data || []).length < MESSAGES_PER_PAGE) {
+      setHasMoreMessages(false);
+    }
+
+    const reversedData = (data || []).reverse();
+    const messagesWithSenders = await Promise.all(
+      reversedData.map(async (msg) => {
+        const { sender, senderRole } = await fetchSenderInfo(msg.sender_id);
+        return { ...msg, sender, senderRole };
+      })
+    );
+
+    setMessages(prev => [...messagesWithSenders, ...prev]);
+    setLoadingMore(false);
+  }, [roomId, loadingMore, hasMoreMessages, messages]);
+
+  // Handle scroll to load more
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    if (target.scrollTop < 100 && hasMoreMessages && !loadingMore) {
+      loadMoreMessages();
+    }
+  }, [loadMoreMessages, hasMoreMessages, loadingMore]);
 
   const fetchMessages = async () => {
     if (!roomId) return;
@@ -350,6 +463,13 @@ const RoomChat: React.FC = () => {
 
             {/* Action buttons */}
             <div className="flex items-center gap-1">
+              {/* Room Switcher */}
+              <RoomSwitcher currentRoomId={roomId}>
+                <Button variant="ghost" size="icon">
+                  <Layers className="w-5 h-5" />
+                </Button>
+              </RoomSwitcher>
+
               {/* Home */}
               <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
                 <Home className="w-5 h-5" />
@@ -368,7 +488,7 @@ const RoomChat: React.FC = () => {
                 className="relative"
               >
                 <Users className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] flex items-center justify-center font-bold">
                   {memberCount}
                 </span>
               </Button>
@@ -407,11 +527,31 @@ const RoomChat: React.FC = () => {
           )}
         </header>
 
-        {/* Messages Area */}
-        <ScrollArea className="flex-1 px-2">
+        {/* Messages Area with scroll handler */}
+        <ScrollArea 
+          className="flex-1 px-2" 
+          ref={scrollAreaRef}
+          onScrollCapture={handleScroll}
+        >
           <div className="py-3 space-y-1">
+            {/* Loading indicator for older messages */}
+            {loadingMore && (
+              <div className="text-center py-2">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+              </div>
+            )}
+
+            {/* Load more button */}
+            {hasMoreMessages && !loadingMore && messages.length > 0 && (
+              <div className="text-center py-2">
+                <Button variant="ghost" size="sm" onClick={loadMoreMessages}>
+                  {lang === 'ar' ? 'تحميل المزيد' : 'Load more'}
+                </Button>
+              </div>
+            )}
+
             {/* Welcome Message */}
-            {room.welcome_message && (
+            {room.welcome_message && messages.length === 0 && (
               <div className="text-center py-4">
                 <p className="inline-block px-4 py-2 rounded-full bg-primary/10 text-sm">
                   {room.welcome_message}

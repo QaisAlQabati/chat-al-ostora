@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import AccountSettings from '@/components/settings/AccountSettings';
 import ChatSettings from '@/components/settings/ChatSettings';
+import PrivacySettings from '@/components/settings/PrivacySettings';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -119,6 +120,9 @@ const Settings: React.FC = () => {
 
         {/* Chat Settings */}
         <ChatSettings />
+
+        {/* Privacy Settings */}
+        <PrivacySettings />
 
         {/* Preferences */}
         <div className="space-y-2">

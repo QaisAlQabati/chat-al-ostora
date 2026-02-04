@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Loader2, Upload, Trash2 } from 'lucide-react';
+import { X, Loader2, Upload, Trash2, Pin } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,6 +32,7 @@ interface Room {
   created_by: string;
   is_password_protected?: boolean;
   password_hash?: string | null;
+  is_pinned?: boolean;
 }
 
 interface RoomSettingsModalProps {
@@ -60,6 +61,7 @@ const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
   const [pinnedMessage, setPinnedMessage] = useState(room.pinned_message || '');
   const [isPasswordProtected, setIsPasswordProtected] = useState(room.is_password_protected || false);
   const [password, setPassword] = useState(room.password_hash || '');
+  const [isPinned, setIsPinned] = useState(room.is_pinned || false);
   const [saving, setSaving] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -116,6 +118,7 @@ const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
           pinned_message: pinnedMessage.trim() || null,
           is_password_protected: isPasswordProtected,
           password_hash: isPasswordProtected ? password : null,
+          is_pinned: isPinned,
         })
         .eq('id', room.id);
 
@@ -302,6 +305,26 @@ const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
                 />
               )}
             </div>
+
+            {/* Pin Room */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Pin className="w-4 h-4 text-primary" />
+                  <Label>{lang === 'ar' ? 'تثبيت الغرفة في الأعلى' : 'Pin Room to Top'}</Label>
+                </div>
+                <Switch
+                  checked={isPinned}
+                  onCheckedChange={setIsPinned}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {lang === 'ar' 
+                  ? 'الغرف المثبتة تظهر دائماً في أعلى القائمة بغض النظر عن عدد الأعضاء'
+                  : 'Pinned rooms always appear at the top regardless of member count'}
+              </p>
+            </div>
+
             <div className="pt-6 border-t border-border">
               <Button
                 variant="destructive"

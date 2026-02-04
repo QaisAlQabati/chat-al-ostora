@@ -204,7 +204,9 @@ export type Database = {
           icon: string | null
           id: string
           is_active: boolean | null
+          is_jail: boolean | null
           is_password_protected: boolean | null
+          is_pinned: boolean | null
           max_members: number | null
           name: string
           password_hash: string | null
@@ -223,7 +225,9 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean | null
+          is_jail?: boolean | null
           is_password_protected?: boolean | null
+          is_pinned?: boolean | null
           max_members?: number | null
           name: string
           password_hash?: string | null
@@ -242,7 +246,9 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean | null
+          is_jail?: boolean | null
           is_password_protected?: boolean | null
+          is_pinned?: boolean | null
           max_members?: number | null
           name?: string
           password_hash?: string | null
@@ -589,6 +595,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          content_ar: string
+          content_en: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_read: boolean | null
+          title_ar: string
+          title_en: string
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content_ar: string
+          content_en: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_read?: boolean | null
+          title_ar: string
+          title_en: string
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content_ar?: string
+          content_en?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_read?: boolean | null
+          title_ar?: string
+          title_en?: string
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       personal_lives: {
         Row: {
           category: string | null
@@ -705,11 +750,14 @@ export type Database = {
           is_banned: boolean | null
           is_verified: boolean | null
           is_vip: boolean | null
+          jailed_in_room: string | null
           languages: Json | null
           last_seen: string | null
           level: number | null
           phone: string | null
           points: number | null
+          private_chat_password: string | null
+          private_chat_setting: string | null
           profile_picture: string | null
           ruby: number | null
           status: Database["public"]["Enums"]["user_status"] | null
@@ -744,11 +792,14 @@ export type Database = {
           is_banned?: boolean | null
           is_verified?: boolean | null
           is_vip?: boolean | null
+          jailed_in_room?: string | null
           languages?: Json | null
           last_seen?: string | null
           level?: number | null
           phone?: string | null
           points?: number | null
+          private_chat_password?: string | null
+          private_chat_setting?: string | null
           profile_picture?: string | null
           ruby?: number | null
           status?: Database["public"]["Enums"]["user_status"] | null
@@ -783,11 +834,14 @@ export type Database = {
           is_banned?: boolean | null
           is_verified?: boolean | null
           is_vip?: boolean | null
+          jailed_in_room?: string | null
           languages?: Json | null
           last_seen?: string | null
           level?: number | null
           phone?: string | null
           points?: number | null
+          private_chat_password?: string | null
+          private_chat_setting?: string | null
           profile_picture?: string | null
           ruby?: number | null
           status?: Database["public"]["Enums"]["user_status"] | null
@@ -803,7 +857,15 @@ export type Database = {
           vip_expires_at?: string | null
           vip_type?: Database["public"]["Enums"]["vip_type"] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_jailed_in_room_fkey"
+            columns: ["jailed_in_room"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       public_live_rooms: {
         Row: {
@@ -897,6 +959,44 @@ export type Database = {
           status?: string | null
         }
         Relationships: []
+      }
+      room_roles: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          expires_at: string | null
+          id: string
+          role: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          expires_at?: string | null
+          id?: string
+          role?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          expires_at?: string | null
+          id?: string
+          role?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_roles_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sent_gifts: {
         Row: {
@@ -1016,6 +1116,30 @@ export type Database = {
           },
         ]
       }
+      system_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_deleted: boolean | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -1113,6 +1237,35 @@ export type Database = {
           },
         ]
       }
+      user_notification_reads: {
+        Row: {
+          id: string
+          notification_id: string
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          notification_id: string
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          notification_id?: string
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           assigned_at: string | null
@@ -1143,6 +1296,7 @@ export type Database = {
           created_at: string | null
           font_color: string | null
           id: string
+          name_background: string | null
           name_color: string | null
           name_glow: boolean | null
           updated_at: string | null
@@ -1153,6 +1307,7 @@ export type Database = {
           created_at?: string | null
           font_color?: string | null
           id?: string
+          name_background?: string | null
           name_color?: string | null
           name_glow?: boolean | null
           updated_at?: string | null
@@ -1163,6 +1318,7 @@ export type Database = {
           created_at?: string | null
           font_color?: string | null
           id?: string
+          name_background?: string | null
           name_color?: string | null
           name_glow?: boolean | null
           updated_at?: string | null
