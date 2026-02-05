@@ -32,8 +32,12 @@ interface ChatRoom {
 
 const ChatRooms: React.FC = () => {
   const { lang } = useLanguage();
-  const { user, isOwner } = useAuth();
+  const { user, profile, isOwner } = useAuth();
   const navigate = useNavigate();
+
+  // Check if user is jailed
+  const isJailed = profile?.jailed_in_room !== null && profile?.jailed_in_room !== undefined;
+  const jailedRoomId = profile?.jailed_in_room;
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,6 +109,13 @@ const ChatRooms: React.FC = () => {
   const handleJoinRoom = async (room: ChatRoom) => {
     if (!user) return;
 
+    // If user is jailed, only allow navigating to the jail room
+    if (isJailed && jailedRoomId && room.id !== jailedRoomId) {
+      toast.error(lang === 'ar' ? 'أنت محبوس ولا يمكنك التنقل لغرفة أخرى' : 'You are jailed and cannot navigate to another room');
+      navigate(`/rooms/${jailedRoomId}`);
+      return;
+    }
+
     try {
       // Check if user is banned from this room
       const { data: membership } = await supabase
@@ -119,8 +130,8 @@ const ChatRooms: React.FC = () => {
         return;
       }
 
-      // If password protected and not a member, show password modal
-      if (room.is_password_protected && !membership) {
+      // If password protected, ALWAYS ask for password (except for owners)
+      if (room.is_password_protected && !isOwner) {
         setSelectedRoom(room);
         setShowPasswordModal(true);
         return;

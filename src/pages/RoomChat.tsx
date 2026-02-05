@@ -24,6 +24,7 @@ import OnlineUsersSidebar from '@/components/chat/OnlineUsersSidebar';
 import YouTubePlayer from '@/components/chat/YouTubePlayer';
 import UserProfileModal from '@/components/profile/UserProfileModal';
 import RoomSwitcher from '@/components/rooms/RoomSwitcher';
+import JailedScreen from '@/components/common/JailedScreen';
 
 interface Message {
   id: string;
@@ -66,9 +67,13 @@ const MESSAGES_PER_PAGE = 30;
 const RoomChat: React.FC = () => {
   const { roomId } = useParams();
   const { lang } = useLanguage();
-  const { user, isOwner: isAppOwner } = useAuth();
+  const { user, profile, isOwner: isAppOwner } = useAuth();
   const { maxRoleLevel, permissions } = useUserRole();
   const navigate = useNavigate();
+
+  // Check if user is jailed
+  const isJailed = profile?.jailed_in_room !== null && profile?.jailed_in_room !== undefined;
+  const jailedRoomId = profile?.jailed_in_room;
 
   const [room, setRoom] = useState<Room | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -127,6 +132,13 @@ const RoomChat: React.FC = () => {
   useEffect(() => {
     if (!user || !roomId) {
       navigate('/rooms');
+      return;
+    }
+
+    // If user is jailed and trying to access a different room, redirect to jail room
+    if (isJailed && jailedRoomId && roomId !== jailedRoomId) {
+      toast.error(lang === 'ar' ? 'أنت محبوس ولا يمكنك التنقل' : 'You are jailed and cannot navigate');
+      navigate(`/rooms/${jailedRoomId}`);
       return;
     }
 

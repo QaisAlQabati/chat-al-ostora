@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Gift, Send, Ban, EyeOff, Shield, Crown, Trophy, Star, MessageSquare, UserPlus, Edit, MoreVertical } from 'lucide-react';
+import { X, Gift, Send, Ban, EyeOff, Shield, Crown, Trophy, Star, MessageSquare, UserPlus, Edit, MoreVertical, Lock } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import RoleBadge from '@/components/common/RoleBadge';
 import { UserRole, ROLE_HIERARCHY, getRoleLevel } from '@/hooks/useUserRole';
+import JailUserModal from '@/components/rooms/JailUserModal';
 
 interface UserProfile {
   user_id: string;
@@ -57,6 +58,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [targetRoleLevel, setTargetRoleLevel] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [showJailModal, setShowJailModal] = useState(false);
 
   const isOwnProfile = user?.id === userId;
 
@@ -285,6 +287,17 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                             </DropdownMenuSubContent>
                           </DropdownMenuSub>
 
+                          {/* Jail Option - For owners and super admins */}
+                          {(isAppOwner || currentUserRole >= 5) && (
+                            <DropdownMenuItem 
+                              onClick={() => setShowJailModal(true)}
+                              className="text-amber-500"
+                            >
+                              <Lock className="w-4 h-4 mr-2" />
+                              {lang === 'ar' ? 'إرسال للسجن' : 'Send to Jail'}
+                            </DropdownMenuItem>
+                          )}
+
                           {/* Ban Options */}
                           <DropdownMenuSub>
                             <DropdownMenuSubTrigger className="text-destructive">
@@ -379,6 +392,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
         )}
       </DialogContent>
+
+      {/* Jail Modal */}
+      <JailUserModal
+        isOpen={showJailModal}
+        onClose={() => setShowJailModal(false)}
+        targetUserId={userId}
+        targetUserName={profile?.display_name || ''}
+      />
     </Dialog>
   );
 };
