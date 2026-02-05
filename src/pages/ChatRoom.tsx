@@ -218,26 +218,44 @@ const ChatRoom: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(lang === 'ar' ? 'حجم الملف كبير جداً (الحد الأقصى 5MB)' : 'File too large (max 5MB)');
+      return;
+    }
+
     setUploadingImage(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('chat-media')
-        .upload(fileName, file);
+      console.log('Uploading image:', fileName);
 
-      if (uploadError) throw uploadError;
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('chat-media')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Upload successful:', uploadData);
 
       const { data: { publicUrl } } = supabase.storage
         .from('chat-media')
         .getPublicUrl(fileName);
 
+      console.log('Public URL:', publicUrl);
+
       await sendMessage('', publicUrl, 'image');
       toast.success(lang === 'ar' ? 'تم إرسال الصورة' : 'Image sent');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading image:', error);
-      toast.error(lang === 'ar' ? 'فشل رفع الصورة' : 'Failed to upload image');
+      toast.error(lang === 'ar' ? `فشل رفع الصورة: ${error.message}` : `Failed to upload image: ${error.message}`);
     } finally {
       setUploadingImage(false);
       if (imageInputRef.current) {
@@ -291,23 +309,37 @@ const ChatRoom: React.FC = () => {
     if (!user) return;
 
     try {
+      // Use mp3 compatible format for better browser support
       const fileName = `${user.id}/${Date.now()}.webm`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('chat-media')
-        .upload(fileName, audioBlob);
+      console.log('Uploading audio:', fileName, 'Size:', audioBlob.size);
 
-      if (uploadError) throw uploadError;
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('chat-media')
+        .upload(fileName, audioBlob, {
+          contentType: 'audio/webm',
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Audio upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Audio upload successful:', uploadData);
 
       const { data: { publicUrl } } = supabase.storage
         .from('chat-media')
         .getPublicUrl(fileName);
 
+      console.log('Audio public URL:', publicUrl);
+
       await sendMessage('', publicUrl, 'audio');
       toast.success(lang === 'ar' ? 'تم إرسال الرسالة الصوتية' : 'Voice message sent');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading audio:', error);
-      toast.error(lang === 'ar' ? 'فشل إرسال الرسالة الصوتية' : 'Failed to send voice message');
+      toast.error(lang === 'ar' ? `فشل إرسال الرسالة الصوتية: ${error.message}` : `Failed to send voice message: ${error.message}`);
     }
   };
 
@@ -423,9 +455,9 @@ const ChatRoom: React.FC = () => {
         </div>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 px-4 py-4" ref={scrollRef}>
-        <div className="space-y-3">
+      {/* Messages - Compact like general chat */}
+      <ScrollArea className="flex-1 px-2 py-2" ref={scrollRef}>
+        <div className="space-y-1">
           {messages.length === 0 && (
             <div className="text-center py-12">
               <div className="w-20 h-20 mx-auto rounded-full overflow-hidden mb-4">
@@ -458,65 +490,85 @@ const ChatRoom: React.FC = () => {
               <div
                 key={message.id}
                 className={cn(
-                  "flex items-end gap-2",
-                  isOwn ? "justify-end" : "justify-start"
+                  "flex items-start gap-2 py-1 px-2 rounded-lg hover:bg-muted/20 transition-colors",
+                  isOwn ? "flex-row-reverse" : "flex-row"
                 )}
               >
-                {!isOwn && (
-                  <div className="w-8 shrink-0">
-                    {showAvatar && (
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-muted">
-                        {otherUser.profile_picture ? (
-                          <img
-                            src={otherUser.profile_picture}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-secondary text-white text-xs font-bold">
-                            {otherUser.display_name[0]}
-                          </div>
-                        )}
+                {/* Avatar - smaller */}
+                <div className="w-7 h-7 shrink-0 rounded-full overflow-hidden bg-muted">
+                  {isOwn ? (
+                    profile?.profile_picture ? (
+                      <img src={profile.profile_picture} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-primary text-primary-foreground text-xs font-bold">
+                        {profile?.display_name?.[0] || '?'}
                       </div>
-                    )}
-                  </div>
-                )}
+                    )
+                  ) : (
+                    otherUser.profile_picture ? (
+                      <img src={otherUser.profile_picture} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-secondary text-secondary-foreground text-xs font-bold">
+                        {otherUser.display_name[0]}
+                      </div>
+                    )
+                  )}
+                </div>
 
+                {/* Message content - compact */}
                 <div className={cn(
-                  "max-w-[75%] flex flex-col",
-                  isOwn ? "items-end" : "items-start"
+                  "flex-1 min-w-0 max-w-[80%]",
+                  isOwn ? "text-right" : "text-left"
                 )}>
+                  {/* Name and time */}
+                  <div className={cn(
+                    "flex items-center gap-2 text-xs mb-0.5",
+                    isOwn ? "flex-row-reverse" : "flex-row"
+                  )}>
+                    <span className="font-medium text-foreground">
+                      {isOwn ? (profile?.display_name || 'أنت') : otherUser.display_name}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {formatTime(message.created_at)}
+                      {isOwn && message.is_read && <span className="text-primary mr-1">✓✓</span>}
+                    </span>
+                  </div>
+
+                  {/* Image */}
                   {message.message_type === 'image' && message.media_url && (
                     <img
                       src={message.media_url}
                       alt=""
-                      className="max-w-full rounded-2xl mb-1 max-h-64 object-cover"
+                      className="max-w-[200px] rounded-lg mb-1 max-h-48 object-cover cursor-pointer hover:opacity-90"
+                      onClick={() => window.open(message.media_url!, '_blank')}
                     />
                   )}
 
+                  {/* Audio - compact */}
                   {message.message_type === 'audio' && message.media_url && (
-                    <audio controls className="max-w-full mb-1">
-                      <source src={message.media_url} type="audio/webm" />
-                    </audio>
-                  )}
-                  
-                  {message.content && (
-                    <div className={cn(
-                      "px-4 py-2 rounded-2xl",
-                      isOwn
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-muted rounded-bl-md"
-                    )}>
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <div className="rounded-lg bg-muted/50 p-1.5">
+                      <audio 
+                        controls 
+                        className="h-8 max-w-[180px]"
+                        preload="metadata"
+                      >
+                        <source src={message.media_url} type="audio/webm" />
+                        <source src={message.media_url} type="audio/mpeg" />
+                      </audio>
                     </div>
                   )}
-
-                  <span className="text-[10px] text-muted-foreground mt-1 px-1">
-                    {formatTime(message.created_at)}
-                    {isOwn && message.is_read && (
-                      <span className="ml-1 text-primary">✓✓</span>
-                    )}
-                  </span>
+                  
+                  {/* Text message */}
+                  {message.content && (
+                    <p className={cn(
+                      "text-sm break-words whitespace-pre-wrap inline-block px-3 py-1.5 rounded-2xl",
+                      isOwn 
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-muted text-foreground"
+                    )}>
+                      {message.content}
+                    </p>
+                  )}
                 </div>
               </div>
             );
