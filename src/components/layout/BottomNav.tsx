@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Compass, Radio, MessageCircle, User, MessagesSquare } from 'lucide-react';
+import { Home, Compass, Radio, MessageCircle, User, MessagesSquare, Hash } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
@@ -11,9 +11,9 @@ const BottomNav: React.FC = () => {
   const navItems = [
     { path: '/', icon: Home, label: t('home') },
     { path: '/rooms', icon: MessagesSquare, label: lang === 'ar' ? 'الغرف' : 'Rooms' },
+    { path: '/posts', icon: Hash, label: lang === 'ar' ? 'المنشورات' : 'Posts' },
     { path: '/live', icon: Radio, label: t('live'), special: true },
     { path: '/messages', icon: MessageCircle, label: t('messages') },
-    { path: '/profile', icon: User, label: t('profile') },
   ];
 
   return (

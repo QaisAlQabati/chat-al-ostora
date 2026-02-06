@@ -18,6 +18,7 @@ import RoomChat from "./pages/RoomChat";
 import Explore from "./pages/Explore";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import Posts from "./pages/Posts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const AppContent = () => {
       <Route path="/explore" element={<Explore />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/posts" element={<Posts />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
