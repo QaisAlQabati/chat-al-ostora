@@ -195,7 +195,9 @@ export type Database = {
       chat_rooms: {
         Row: {
           allow_emojis: boolean | null
+          allow_mic_requests: boolean | null
           allow_private_messages: boolean | null
+          allow_songs: boolean | null
           background_color: string | null
           background_url: string | null
           created_at: string | null
@@ -204,10 +206,16 @@ export type Database = {
           icon: string | null
           id: string
           is_active: boolean | null
+          is_chat_muted: boolean | null
           is_jail: boolean | null
+          is_locked: boolean | null
           is_password_protected: boolean | null
           is_pinned: boolean | null
           max_members: number | null
+          mic_count: number | null
+          mic_enabled: boolean | null
+          mic_points_reward: number | null
+          mic_time_limit: number | null
           name: string
           password_hash: string | null
           pinned_message: string | null
@@ -216,7 +224,9 @@ export type Database = {
         }
         Insert: {
           allow_emojis?: boolean | null
+          allow_mic_requests?: boolean | null
           allow_private_messages?: boolean | null
+          allow_songs?: boolean | null
           background_color?: string | null
           background_url?: string | null
           created_at?: string | null
@@ -225,10 +235,16 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean | null
+          is_chat_muted?: boolean | null
           is_jail?: boolean | null
+          is_locked?: boolean | null
           is_password_protected?: boolean | null
           is_pinned?: boolean | null
           max_members?: number | null
+          mic_count?: number | null
+          mic_enabled?: boolean | null
+          mic_points_reward?: number | null
+          mic_time_limit?: number | null
           name: string
           password_hash?: string | null
           pinned_message?: string | null
@@ -237,7 +253,9 @@ export type Database = {
         }
         Update: {
           allow_emojis?: boolean | null
+          allow_mic_requests?: boolean | null
           allow_private_messages?: boolean | null
+          allow_songs?: boolean | null
           background_color?: string | null
           background_url?: string | null
           created_at?: string | null
@@ -246,10 +264,16 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean | null
+          is_chat_muted?: boolean | null
           is_jail?: boolean | null
+          is_locked?: boolean | null
           is_password_protected?: boolean | null
           is_pinned?: boolean | null
           max_members?: number | null
+          mic_count?: number | null
+          mic_enabled?: boolean | null
+          mic_points_reward?: number | null
+          mic_time_limit?: number | null
           name?: string
           password_hash?: string | null
           pinned_message?: string | null
@@ -1074,6 +1098,85 @@ export type Database = {
           status?: string | null
         }
         Relationships: []
+      }
+      room_mic_requests: {
+        Row: {
+          created_at: string | null
+          id: string
+          requested_slot: number | null
+          responded_at: string | null
+          responded_by: string | null
+          room_id: string
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          requested_slot?: number | null
+          responded_at?: string | null
+          responded_by?: string | null
+          room_id: string
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          requested_slot?: number | null
+          responded_at?: string | null
+          responded_by?: string | null
+          room_id?: string
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_mic_requests_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_mic_slots: {
+        Row: {
+          id: string
+          is_locked: boolean | null
+          is_muted: boolean | null
+          room_id: string
+          slot_number: number
+          started_at: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_locked?: boolean | null
+          is_muted?: boolean | null
+          room_id: string
+          slot_number: number
+          started_at?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_locked?: boolean | null
+          is_muted?: boolean | null
+          room_id?: string
+          slot_number?: number
+          started_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_mic_slots_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       room_roles: {
         Row: {

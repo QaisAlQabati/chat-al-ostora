@@ -3,13 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useRoomMics } from '@/hooks/useRoomMics';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   ChevronLeft, Send, Settings, Users, UserPlus, Home,
-  MoreVertical, Trash2, Pin, Youtube, Smile, Image, Mic, Layers
+  MoreVertical, Trash2, Pin, Youtube, Smile, Image, Mic, Layers,
+  Hand, Lock
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -19,6 +21,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import RoomSettingsModal from '@/components/rooms/RoomSettingsModal';
+import MicSlotsDisplay from '@/components/rooms/MicSlotsDisplay';
+import MicSettingsModal from '@/components/rooms/MicSettingsModal';
+import MicRequestsModal from '@/components/rooms/MicRequestsModal';
 import ChatMessage from '@/components/chat/ChatMessage';
 import OnlineUsersSidebar from '@/components/chat/OnlineUsersSidebar';
 import YouTubePlayer from '@/components/chat/YouTubePlayer';
@@ -88,6 +93,27 @@ const RoomChat: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [memberCount, setMemberCount] = useState(0);
+  const [showMicSettings, setShowMicSettings] = useState(false);
+  const [showMicRequests, setShowMicRequests] = useState(false);
+
+  // Room Mics Hook
+  const {
+    slots: micSlots,
+    requests: micRequests,
+    settings: micSettings,
+    mySlot,
+    myRequest,
+    requestMic,
+    cancelRequest,
+    leaveSlot,
+    approveRequest,
+    rejectRequest,
+    removeFromMic,
+    toggleMuteMic,
+    updateSettings: updateMicSettings,
+  } = useRoomMics(roomId);
+
+  const isModOrOwner = isAppOwner || maxRoleLevel >= 3;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -509,6 +535,21 @@ const RoomChat: React.FC = () => {
                 </span>
               </Button>
 
+              {/* Mic Requests Button for Mods */}
+              {isModOrOwner && micRequests.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowMicRequests(true)}
+                  className="relative"
+                >
+                  <Hand className="w-5 h-5" />
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] flex items-center justify-center font-bold">
+                    {micRequests.length}
+                  </span>
+                </Button>
+              )}
+
               {/* Settings dropdown */}
               {isAppOwner && (
                 <DropdownMenu>
@@ -521,6 +562,10 @@ const RoomChat: React.FC = () => {
                     <DropdownMenuItem onClick={() => setShowSettings(true)}>
                       <Settings className="w-4 h-4 mr-2" />
                       {lang === 'ar' ? 'إعدادات الغرفة' : 'Room Settings'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowMicSettings(true)}>
+                      <Mic className="w-4 h-4 mr-2" />
+                      {lang === 'ar' ? 'إعدادات المايكات' : 'Mic Settings'}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={clearChat} className="text-destructive">
                       <Trash2 className="w-4 h-4 mr-2" />
@@ -542,6 +587,23 @@ const RoomChat: React.FC = () => {
             </div>
           )}
         </header>
+
+        {/* Mic Slots Display */}
+        {micSettings?.mic_enabled && (
+          <MicSlotsDisplay
+            slots={micSlots}
+            settings={micSettings}
+            maxSlots={micSettings.mic_count}
+            isModOrOwner={isModOrOwner}
+            mySlot={mySlot}
+            hasMyRequest={!!myRequest}
+            onRequestMic={requestMic}
+            onCancelRequest={cancelRequest}
+            onLeaveSlot={leaveSlot}
+            onRemoveFromMic={removeFromMic}
+            onToggleMute={toggleMuteMic}
+          />
+        )}
 
         {/* Messages Area with scroll handler */}
         <ScrollArea 
@@ -687,6 +749,26 @@ const RoomChat: React.FC = () => {
         onClose={() => setShowSettings(false)}
         room={room}
         onUpdate={fetchRoom}
+      />
+
+      {/* Mic Settings Modal */}
+      <MicSettingsModal
+        isOpen={showMicSettings}
+        onClose={() => setShowMicSettings(false)}
+        roomName={room.name}
+        settings={micSettings}
+        onSave={updateMicSettings}
+      />
+
+      {/* Mic Requests Modal */}
+      <MicRequestsModal
+        isOpen={showMicRequests}
+        onClose={() => setShowMicRequests(false)}
+        requests={micRequests}
+        slots={micSlots}
+        maxSlots={micSettings?.mic_count || 4}
+        onApprove={approveRequest}
+        onReject={rejectRequest}
       />
 
       {/* CSS for slide-in animation */}
