@@ -180,10 +180,14 @@ const RoomChat: React.FC = () => {
     };
   }, [user, roomId]);
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom on initial load and new messages
   useEffect(() => {
     if (messages.length > 0 && !loadingMore) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      // Use instant scroll on initial load, smooth on new messages
+      const isInitialLoad = oldestMessageId.current === messages[0]?.id;
+      messagesEndRef.current?.scrollIntoView({ 
+        behavior: isInitialLoad ? 'instant' : 'smooth' 
+      });
     }
   }, [messages, loadingMore]);
 
