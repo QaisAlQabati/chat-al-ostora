@@ -209,13 +209,15 @@ const RoomChat: React.FC = () => {
   // Scroll to bottom on initial load and new messages
   useEffect(() => {
     if (messages.length > 0 && !loadingMore) {
-      // Use instant scroll on initial load, smooth on new messages
-      const isInitialLoad = oldestMessageId.current === messages[0]?.id;
-      messagesEndRef.current?.scrollIntoView({ 
-        behavior: isInitialLoad ? 'instant' : 'smooth' 
+      // Always scroll to bottom (latest messages) - instant on load, smooth on new messages
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ 
+          behavior: 'instant',
+          block: 'end'
+        });
       });
     }
-  }, [messages, loadingMore]);
+  }, [messages.length, loadingMore]);
 
   const fetchMemberCount = async () => {
     if (!roomId) return;
