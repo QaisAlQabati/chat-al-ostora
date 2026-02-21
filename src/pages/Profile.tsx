@@ -4,6 +4,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import EditProfileModal from '@/components/profile/EditProfileModal';
 import GiftModal from '@/components/gifts/GiftModal';
+import GiftsFolder from '@/components/gifts/GiftsFolder';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -215,14 +216,12 @@ const Profile: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="gifts" className="mt-4">
-          <Card className="text-center py-12">
-            <CardContent>
-              <Gift className="w-12 h-12 mx-auto text-muted-foreground" />
-              <p className="mt-4 text-muted-foreground">
-                {lang === 'ar' ? 'لا توجد هدايا بعد' : 'No gifts yet'}
-              </p>
-            </CardContent>
-          </Card>
+          {profile && (
+            <GiftsFolder
+              userId={profile.user_id}
+              isOwnProfile={isOwnProfile}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
