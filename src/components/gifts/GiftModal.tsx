@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +49,7 @@ const GiftModal: React.FC<GiftModalProps> = ({
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -138,18 +140,38 @@ const GiftModal: React.FC<GiftModalProps> = ({
         description: `Sent ${quantity}x ${selectedGift.name_en} to ${receiverName}`,
       });
 
+      // Create notification for receiver
+      await supabase.from('notifications').insert({
+        user_id: receiverId,
+        type: 'gift_received',
+        title_ar: `هدية جديدة من ${profile.display_name}`,
+        title_en: `New gift from ${profile.display_name}`,
+        content_ar: `أرسل لك ${quantity}x ${selectedGift.name_ar}`,
+        content_en: `Sent you ${quantity}x ${selectedGift.name_en}`,
+        reference_id: receiverId,
+        reference_type: 'gift',
+        related_user_id: user.id,
+        image_url: selectedGift.image_url,
+        message: message || undefined,
+      });
+
       await refreshProfile();
-      
+
       // Call onGiftSent callback if provided
       if (onGiftSent) {
         onGiftSent(selectedGift.image_url, quantity);
       }
-      
+
       toast.success(
         lang === 'ar'
           ? `تم إرسال ${quantity}x ${selectedGift.name_ar}!`
           : `Sent ${quantity}x ${selectedGift.name_en}!`
       );
+
+      // Reset form
+      setMessage('');
+      setSelectedGift(null);
+      setQuantity(1);
       onClose();
     } catch (error) {
       console.error('Error sending gift:', error);
@@ -276,6 +298,22 @@ const GiftModal: React.FC<GiftModalProps> = ({
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {lang === 'ar' ? 'رسالة مع الهدية (اختياري)' : 'Message with gift (optional)'}
+              </label>
+              <Textarea
+                placeholder={lang === 'ar' ? 'أضف رسالة...' : 'Add a message...'}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                maxLength={200}
+                className="resize-none h-20"
+              />
+              <p className="text-xs text-muted-foreground">
+                {message.length}/200
+              </p>
             </div>
 
             <Button
