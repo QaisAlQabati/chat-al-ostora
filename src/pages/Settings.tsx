@@ -132,10 +132,12 @@ const Settings: React.FC = () => {
           <Card>
             <CardContent className="p-0 divide-y divide-border">
               {preferencesItems.map((item, itemIdx) => (
-                <button
+                <div
                   key={itemIdx}
-                  onClick={item.onClick}
+                  onClick={!item.hasSwitch ? item.onClick : undefined}
                   className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                  role={!item.hasSwitch ? "button" : undefined}
+                  tabIndex={!item.hasSwitch ? 0 : undefined}
                 >
                   <div className="flex items-center gap-3">
                     <item.icon className="w-5 h-5 text-muted-foreground" />
@@ -148,7 +150,7 @@ const Settings: React.FC = () => {
                   ) : (
                     <ChevronLeft className="w-5 h-5 text-muted-foreground rotate-180" />
                   )}
-                </button>
+                </div>
               ))}
             </CardContent>
           </Card>
@@ -162,17 +164,19 @@ const Settings: React.FC = () => {
           <Card>
             <CardContent className="p-0 divide-y divide-border">
               {moreItems.map((item, itemIdx) => (
-                <button
+                <div
                   key={itemIdx}
                   onClick={item.onClick}
-                  className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                  className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                  role="button"
+                  tabIndex={0}
                 >
                   <div className="flex items-center gap-3">
                     <item.icon className="w-5 h-5 text-muted-foreground" />
                     <span>{item.label}</span>
                   </div>
                   <ChevronLeft className="w-5 h-5 text-muted-foreground rotate-180" />
-                </button>
+                </div>
               ))}
             </CardContent>
           </Card>

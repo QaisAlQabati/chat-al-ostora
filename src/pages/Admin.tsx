@@ -701,39 +701,73 @@ const Admin: React.FC = () => {
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent>
                               <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'vip')}>
-                                <span className="mr-2">⭐</span>
-                                {lang === 'ar' ? 'عضو مميز (VIP)' : 'VIP Member'}
+                                <span className="mr-2">✨</span>
+                                {lang === 'ar' ? 'عضو مميز' : 'VIP Member'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'royal_member')}>
+                                <span className="mr-2">💫</span>
+                                {lang === 'ar' ? 'عضو ملكي' : 'Royal Member'}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'moderator')}>
                                 <span className="mr-2">🛡️</span>
                                 {lang === 'ar' ? 'مشرف' : 'Moderator'}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'admin')}>
-                                <span className="mr-2">⚙️</span>
-                                {lang === 'ar' ? 'إدارة' : 'Admin'}
+                                <span className="mr-2">🔱</span>
+                                {lang === 'ar' ? 'أدمن' : 'Admin'}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'super_admin')}>
+                                <span className="mr-2">⚡</span>
+                                {lang === 'ar' ? 'سوبر أدمن' : 'Super Admin'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'admin_level')}>
+                                <span className="mr-2">⭐</span>
+                                {lang === 'ar' ? 'الإدارة' : 'Administration'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'upper_admin')}>
                                 <span className="mr-2">👑</span>
-                                {lang === 'ar' ? 'إدارة عليا' : 'Super Admin'}
+                                {lang === 'ar' ? 'الإدارة العليا' : 'Upper Admin'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetRole(profile.user_id, 'crown_wing')}>
+                                <span className="mr-2">⚜️</span>
+                                {lang === 'ar' ? 'جناح الملوك' : 'Crown Wing'}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleRemoveRole(profile.user_id, 'vip')}
                                 className="text-destructive"
                               >
-                                {lang === 'ar' ? 'سحب VIP' : 'Remove VIP'}
+                                {lang === 'ar' ? 'سحب عضو مميز' : 'Remove VIP'}
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
+                                onClick={() => handleRemoveRole(profile.user_id, 'royal_member')}
+                                className="text-destructive"
+                              >
+                                {lang === 'ar' ? 'سحب عضو ملكي' : 'Remove Royal'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 onClick={() => handleRemoveRole(profile.user_id, 'moderator')}
                                 className="text-destructive"
                               >
                                 {lang === 'ar' ? 'سحب المشرف' : 'Remove Moderator'}
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleRemoveRole(profile.user_id, 'admin')}
                                 className="text-destructive"
                               >
-                                {lang === 'ar' ? 'سحب الإدارة' : 'Remove Admin'}
+                                {lang === 'ar' ? 'سحب الأدمن' : 'Remove Admin'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleRemoveRole(profile.user_id, 'super_admin')}
+                                className="text-destructive"
+                              >
+                                {lang === 'ar' ? 'سحب سوبر أدمن' : 'Remove Super Admin'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleRemoveRole(profile.user_id, 'crown_wing')}
+                                className="text-destructive"
+                              >
+                                {lang === 'ar' ? 'سحب جناح الملوك' : 'Remove Crown Wing'}
                               </DropdownMenuItem>
                             </DropdownMenuSubContent>
                           </DropdownMenuSub>

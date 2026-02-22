@@ -95,6 +95,11 @@ const RoomChat: React.FC = () => {
   const [memberCount, setMemberCount] = useState(0);
   const [showMicSettings, setShowMicSettings] = useState(false);
   const [showMicRequests, setShowMicRequests] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Room Mics Hook
   const {
@@ -439,6 +444,120 @@ const RoomChat: React.FC = () => {
       });
   };
 
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !roomId || !user) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      try {
+        // Upload to storage
+        const timestamp = Date.now();
+        const filename = `room-${roomId}/${timestamp}-${file.name}`;
+
+        const { data, error: uploadError } = await supabase.storage
+          .from('chat-images')
+          .upload(filename, file);
+
+        if (uploadError) throw uploadError;
+
+        // Send message with image
+        const publicUrl = supabase.storage
+          .from('chat-images')
+          .getPublicUrl(filename).data?.publicUrl;
+
+        await supabase
+          .from('chat_room_messages')
+          .insert({
+            room_id: roomId,
+            sender_id: user.id,
+            content: `📷 ${file.name}\n${publicUrl}`,
+            message_type: 'image',
+          });
+
+        toast.success(lang === 'ar' ? 'تم إرسال الصورة' : 'Image sent');
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        toast.error(lang === 'ar' ? 'فشل إرسال الصورة' : 'Failed to send image');
+      }
+    }
+
+    // Reset input
+    if (imageInputRef.current) {
+      imageInputRef.current.value = '';
+    }
+  };
+
+  const handleStartAudioRecord = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+        try {
+          const timestamp = Date.now();
+          const filename = `room-${roomId}/${timestamp}-audio.webm`;
+
+          const { data, error: uploadError } = await supabase.storage
+            .from('chat-audio')
+            .upload(filename, audioBlob);
+
+          if (uploadError) throw uploadError;
+
+          const publicUrl = supabase.storage
+            .from('chat-audio')
+            .getPublicUrl(filename).data?.publicUrl;
+
+          await supabase
+            .from('chat_room_messages')
+            .insert({
+              room_id: roomId,
+              sender_id: user?.id,
+              content: `🎙️ Voice message\n${publicUrl}`,
+              message_type: 'audio',
+            });
+
+          toast.success(lang === 'ar' ? 'تم إرسال الصوت' : 'Voice sent');
+        } catch (error) {
+          console.error('Error uploading audio:', error);
+          toast.error(lang === 'ar' ? 'فشل إرسال الصوت' : 'Failed to send voice');
+        }
+
+        stream.getTracks().forEach(track => track.stop());
+        setIsRecordingAudio(false);
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecordingAudio(true);
+      toast.success(lang === 'ar' ? 'جاري التسجيل...' : 'Recording started...');
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      toast.error(lang === 'ar' ? 'لا يمكن الوصول للميكروفون' : 'Cannot access microphone');
+    }
+  };
+
+  const handleStopAudioRecord = () => {
+    if (mediaRecorder && isRecordingAudio) {
+      mediaRecorder.stop();
+      setIsRecordingAudio(false);
+    }
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+    setShowEmojiPicker(false);
+    inputRef.current?.focus();
+  };
+
   const clearChat = async () => {
     if (!roomId || !isAppOwner) return;
 
@@ -663,14 +782,39 @@ const RoomChat: React.FC = () => {
             <div className="flex items-center gap-2">
               {/* Attachment button */}
               {permissions.canSendMedia && (
-                <Button variant="ghost" size="icon" className="flex-shrink-0">
-                  <Image className="w-5 h-5" />
-                </Button>
+                <>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="flex-shrink-0"
+                    onClick={() => imageInputRef.current?.click()}
+                    title={lang === 'ar' ? 'إرسال صورة' : 'Send image'}
+                  >
+                    <Image className="w-5 h-5" />
+                  </Button>
+                </>
               )}
 
               {/* Voice button */}
               {permissions.canSendMedia && (
-                <Button variant="ghost" size="icon" className="flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="flex-shrink-0"
+                  onClick={isRecordingAudio ? handleStopAudioRecord : handleStartAudioRecord}
+                  title={lang === 'ar' ? 'تسجيل صوت' : 'Record audio'}
+                  style={{
+                    color: isRecordingAudio ? '#ef4444' : 'inherit'
+                  }}
+                >
                   <Mic className="w-5 h-5" />
                 </Button>
               )}
@@ -697,13 +841,33 @@ const RoomChat: React.FC = () => {
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   className="pr-10 bg-muted/50"
                 />
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  title={lang === 'ar' ? 'إضافة إيموجي' : 'Add emoji'}
                 >
                   <Smile className="w-5 h-5 text-muted-foreground" />
                 </Button>
+
+                {/* Emoji Picker */}
+                {showEmojiPicker && (
+                  <div className="absolute right-0 bottom-12 bg-card border border-border rounded-lg shadow-lg p-2 z-50">
+                    <div className="grid grid-cols-6 gap-2 w-64">
+                      {['😀', '😂', '😍', '😎', '🤔', '😢', '👍', '👏', '🎉', '🚀', '💡', '❤️', '🔥', '✨', '🎁', '🌟', '😜', '🤗', '😴', '😡', '🤣', '😋', '😘', '😌', '🙌', '💪', '👌', '🤝', '🎊', '🏆', '🎈', '💯', '🌈', '⭐', '🌸', '🍕'].map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => handleEmojiSelect(emoji)}
+                          className="text-xl hover:bg-muted p-1 rounded cursor-pointer transition-colors"
+                          title={emoji}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Send Button */}

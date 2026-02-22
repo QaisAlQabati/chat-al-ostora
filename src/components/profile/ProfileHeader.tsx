@@ -207,16 +207,12 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             <span className="text-gold font-bold">⭐ {t('level')} {profile.level}</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-gold">💰</span>
-            <span>{profile.points.toLocaleString()}</span>
+            <span className="text-amber-400">⭐</span>
+            <span>{profile.points.toLocaleString()} {lang === 'ar' ? 'نقاط' : 'Points'}</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-ruby">💎</span>
-            <span>{profile.ruby}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-diamond">💠</span>
-            <span>{profile.diamonds}</span>
+            <span className="text-rose-400">💎</span>
+            <span>{profile.ruby} {lang === 'ar' ? 'روبي' : 'Ruby'}</span>
           </div>
         </div>
 
