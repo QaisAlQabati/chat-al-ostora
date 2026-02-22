@@ -6,7 +6,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -196,6 +195,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md p-0 overflow-hidden">
+        <DialogTitle className="sr-only">
+          {lang === 'ar' ? 'الملف الشخصي' : 'User Profile'}
+        </DialogTitle>
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />

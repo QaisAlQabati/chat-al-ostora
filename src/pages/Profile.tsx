@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Image, Radio, Gift, Award, Clock } from 'lucide-react';
+import { Image, Radio, Gift, Award, Clock, Copy, CheckCircle2 } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -45,6 +45,7 @@ const Profile: React.FC = () => {
   const [showGift, setShowGift] = useState(false);
   const [stories, setStories] = useState<any[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const targetUserId = userId || user?.id;
   const isOwnProfile = !userId || userId === user?.id;
@@ -77,6 +78,17 @@ const Profile: React.FC = () => {
       console.error('Error fetching profile:', error);
     } finally {
       setLoadingProfile(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const profileLink = `${window.location.origin}/profile/${profile?.user_id}`;
+    try {
+      await navigator.clipboard.writeText(profileLink);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch (error) {
+      console.error('Error copying link:', error);
     }
   };
 
@@ -162,21 +174,176 @@ const Profile: React.FC = () => {
         onFollow={() => {}}
       />
 
-      <Tabs defaultValue="stories" className="mt-6 px-4">
-        <TabsList className="w-full justify-start bg-muted/50 p-1">
-          <TabsTrigger value="stories" className="flex-1 gap-2">
+      <Tabs defaultValue="info" className="mt-6 px-4">
+        <TabsList className="w-full justify-start bg-muted/50 p-1 overflow-x-auto">
+          <TabsTrigger value="info" className="gap-2 text-xs sm:text-sm">
+            <span>📋</span>
+            {lang === 'ar' ? 'معلوماتي' : 'My Info'}
+          </TabsTrigger>
+          <TabsTrigger value="stats" className="gap-2 text-xs sm:text-sm">
+            <span>📊</span>
+            {lang === 'ar' ? 'المعلومات' : 'Info'}
+          </TabsTrigger>
+          <TabsTrigger value="gifts" className="gap-2 text-xs sm:text-sm">
+            <Gift className="w-4 h-4" />
+            {lang === 'ar' ? 'الهدايا' : 'Gifts'}
+          </TabsTrigger>
+          <TabsTrigger value="stories" className="gap-2 text-xs sm:text-sm">
             <Image className="w-4 h-4" />
             {t('stories')}
           </TabsTrigger>
-          <TabsTrigger value="live" className="flex-1 gap-2">
+          <TabsTrigger value="live" className="gap-2 text-xs sm:text-sm">
             <Radio className="w-4 h-4" />
             {t('live')}
           </TabsTrigger>
-          <TabsTrigger value="gifts" className="flex-1 gap-2">
-            <Gift className="w-4 h-4" />
-            {t('gifts')}
-          </TabsTrigger>
         </TabsList>
+
+        {/* معلوماتي - My Info Tab */}
+        <TabsContent value="info" className="mt-4 space-y-4">
+          {profile && (
+            <div className="space-y-4">
+              {/* Profile Link */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium">
+                      {lang === 'ar' ? '🔗 رابط الملف الشخصي' : '🔗 Profile Link'}
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={`${window.location.origin}/profile/${profile.user_id}`}
+                      readOnly
+                      className="flex-1 px-3 py-2 bg-muted rounded border border-border text-sm text-muted-foreground"
+                    />
+                    <button
+                      onClick={handleCopyLink}
+                      className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+                    >
+                      {copiedLink ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        <Copy className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Gender */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{lang === 'ar' ? '⚧️ الجنس' : '⚧️ Gender'}</span>
+                    <span className="font-medium text-right">{profile.country || '—'}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Country */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{lang === 'ar' ? '🌍 البلد' : '🌍 Country'}</span>
+                    <span className="font-medium text-right">{profile.country || '—'}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Join Date */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{lang === 'ar' ? '📅 تاريخ الانضمام' : '📅 Join Date'}</span>
+                    <span className="font-medium text-right">
+                      {new Date(profile.created_at).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US')}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Room */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{lang === 'ar' ? '🏠 الغرفة الحالية' : '🏠 Current Room'}</span>
+                    <span className="font-medium text-right">{profile.bio || '—'}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* المعلومات - Statistics Tab */}
+        <TabsContent value="stats" className="mt-4 space-y-4">
+          {profile && (
+            <div className="space-y-4">
+              {/* Ruby */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">💎 {lang === 'ar' ? 'الروبي الحالي' : 'Current Ruby'}</span>
+                    <span className="font-bold text-rose-400 text-lg">{profile.ruby}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Points */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">⭐ {lang === 'ar' ? 'النقاط' : 'Points'}</span>
+                    <span className="font-bold text-amber-400 text-lg">{profile.points}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Level */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">🏆 {lang === 'ar' ? 'المستوى' : 'Level'}</span>
+                    <span className="font-bold text-lg">{profile.level}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Followers */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">👥 {lang === 'ar' ? 'المتابعون' : 'Followers'}</span>
+                    <span className="font-bold text-lg">{stats.followers}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Following */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">📍 {lang === 'ar' ? 'المتابع' : 'Following'}</span>
+                    <span className="font-bold text-lg">{stats.following}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Last Seen */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">👁️ {lang === 'ar' ? 'آخر تواجد' : 'Last Seen'}</span>
+                    <span className="font-medium text-right text-sm">
+                      {new Date().toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US')}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="stories" className="mt-4">
           {stories.length > 0 ? (
