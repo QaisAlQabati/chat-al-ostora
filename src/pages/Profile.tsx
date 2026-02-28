@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Image, Radio, Gift, Award, Clock } from 'lucide-react';
+import { Image, Radio, Gift, Award, Clock, User, BarChart2, Copy } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -30,6 +30,15 @@ interface UserProfile {
   vip_type: string | null;
   is_verified: boolean;
   created_at: string;
+  gender?: string;
+  language?: string;
+  current_room?: string;
+  last_seen?: string;
+  gold?: number;
+  today_points?: number;
+  weekly_interaction_points?: number;
+  competition_points?: number;
+  kings_rank?: number;
 }
 
 const Profile: React.FC = () => {
@@ -44,6 +53,7 @@ const Profile: React.FC = () => {
   const [showGift, setShowGift] = useState(false);
   const [stories, setStories] = useState<any[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   const targetUserId = userId || user?.id;
   const isOwnProfile = !userId || userId === user?.id;
@@ -127,6 +137,14 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handleCopyLink = () => {
+    const profileLink = `${window.location.origin}/#id${profile?.id}`;
+    navigator.clipboard.writeText(profileLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   if (loading || loadingProfile) {
     return (
       <MainLayout>
@@ -161,8 +179,20 @@ const Profile: React.FC = () => {
         onFollow={() => {}}
       />
 
-      <Tabs defaultValue="stories" className="mt-6 px-4">
-        <TabsList className="w-full justify-start bg-muted/50 p-1">
+      <Tabs defaultValue="myinfo" className="mt-6 px-4">
+        <TabsList className="w-full justify-start bg-muted/50 p-1 flex flex-wrap gap-1">
+
+          {/* ── التبويبات الجديدة (معلوماتي / المعلومات / الهدايا) ── */}
+          <TabsTrigger value="myinfo" className="flex-1 gap-2">
+            <User className="w-4 h-4" />
+            {lang === 'ar' ? 'معلوماتي' : 'My Info'}
+          </TabsTrigger>
+          <TabsTrigger value="stats" className="flex-1 gap-2">
+            <BarChart2 className="w-4 h-4" />
+            {lang === 'ar' ? 'المعلومات' : 'Stats'}
+          </TabsTrigger>
+
+          {/* ── التبويبات القديمة (stories / live / gifts) ── */}
           <TabsTrigger value="stories" className="flex-1 gap-2">
             <Image className="w-4 h-4" />
             {t('stories')}
@@ -177,6 +207,158 @@ const Profile: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
+        {/* ════════════════════════════════════════
+            تبويب معلوماتي (الجديد)
+        ════════════════════════════════════════ */}
+        <TabsContent value="myinfo" className="mt-4">
+          <Card>
+            <CardContent className="pt-4 space-y-0 divide-y divide-border">
+
+              {/* رابط الملف الشخصي */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  🔗 {lang === 'ar' ? 'رابط الملف الشخصي' : 'Profile Link'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-primary truncate max-w-[160px]">
+                    {`${window.location.origin}/#id${profile.id}`}
+                  </span>
+                  <button onClick={handleCopyLink} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                    {copied ? '✅' : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* الجنس */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  ⚧️ {lang === 'ar' ? 'الجنس' : 'Gender'}
+                </span>
+                <span className="text-sm font-medium">
+                  {profile.gender
+                    ? lang === 'ar'
+                      ? profile.gender === 'male' ? 'ذكر' : 'أنثى'
+                      : profile.gender
+                    : '—'}
+                </span>
+              </div>
+
+              {/* البلد */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  🌍 {lang === 'ar' ? 'البلد' : 'Country'}
+                </span>
+                <span className="text-sm font-medium">{profile.country || '—'} 🌐</span>
+              </div>
+
+              {/* اللغة */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  🗣️ {lang === 'ar' ? 'اللغة' : 'Language'}
+                </span>
+                <span className="text-sm font-medium">{profile.language || (lang === 'ar' ? 'Arabic' : 'Arabic')} 🔤</span>
+              </div>
+
+              {/* تاريخ الانضمام */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  📅 {lang === 'ar' ? 'تاريخ الانضمام' : 'Join Date'}
+                </span>
+                <span className="text-sm font-medium">
+                  {profile.created_at ? new Date(profile.created_at).toISOString().split('T')[0] : '—'} 👤
+                </span>
+              </div>
+
+              {/* الغرفة الحالية */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  🏠 {lang === 'ar' ? 'الغرفة الحالية' : 'Current Room'}
+                </span>
+                <span className="text-sm font-medium">{profile.current_room || '—'} 🏠</span>
+              </div>
+
+              {/* آخر تواجد */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  👁️ {lang === 'ar' ? 'آخر تواجد' : 'Last Seen'}
+                </span>
+                <span className="text-sm font-medium">
+                  {profile.last_seen
+                    ? new Date(profile.last_seen).toLocaleString(lang === 'ar' ? 'ar-YE' : 'en-US')
+                    : '—'} 👁️
+                </span>
+              </div>
+
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ════════════════════════════════════════
+            تبويب المعلومات (الجديد)
+        ════════════════════════════════════════ */}
+        <TabsContent value="stats" className="mt-4">
+          <Card>
+            <CardContent className="pt-4 space-y-0 divide-y divide-border">
+
+              {/* الجواهر */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  💎 {lang === 'ar' ? 'الجواهر الحالية' : 'Current Diamonds'}
+                </span>
+                <span className="text-sm font-bold text-primary">{profile.diamonds ?? 0}</span>
+              </div>
+
+              {/* النقاط */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  ⭐ {lang === 'ar' ? 'النقاط' : 'Points'}
+                </span>
+                <span className="text-sm font-bold">{profile.points ?? 0}</span>
+              </div>
+
+              {/* النقاط المجموعة اليوم */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  📊 {lang === 'ar' ? 'النقاط المجموعة اليوم' : "Today's Points"}
+                </span>
+                <span className="text-sm font-bold">{profile.today_points ?? 0}</span>
+              </div>
+
+              {/* نقاط تفاعل لهذا الأسبوع */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  🏆 {lang === 'ar' ? 'نقاط تفاعل لهذا الأسبوع' : 'Weekly Interaction Points'}
+                </span>
+                <span className="text-sm font-bold">{profile.weekly_interaction_points ?? 0}</span>
+              </div>
+
+              {/* نقاط المسابقات */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  🏁 {lang === 'ar' ? 'نقاط المسابقات' : 'Competition Points'}
+                </span>
+                <span className="text-sm font-bold">{profile.competition_points ?? 0}</span>
+              </div>
+
+              {/* الترتيب في قائمة الملوك */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  👑 {lang === 'ar' ? 'ترتيبك في قائمة الملوك' : 'Kings List Rank'}
+                </span>
+                <span className="text-sm font-bold">
+                  {profile.kings_rank
+                    ? `${lang === 'ar' ? 'المركز' : 'Rank'} ${profile.kings_rank}`
+                    : '—'}
+                </span>
+              </div>
+
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ════════════════════════════════════════
+            التبويبات القديمة (كما هي بدون تعديل)
+        ════════════════════════════════════════ */}
         <TabsContent value="stories" className="mt-4">
           {stories.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
