@@ -89,7 +89,7 @@ const ChatRoom: React.FC = () => {
           (payload) => {
             const newMsg = payload.new as Message;
             setMessages(prev => [...prev, newMsg]);
-            
+
             if (newMsg.sender_id !== user?.id) {
               markAsRead(newMsg.id);
             }
@@ -557,7 +557,7 @@ const ChatRoom: React.FC = () => {
                       </audio>
                     </div>
                   )}
-                  
+
                   {/* Text message */}
                   {message.content && (
                     <p className={cn(
@@ -698,4 +698,4 @@ const ChatRoom: React.FC = () => {
   );
 };
 
-export default ChatRoom;
+export default ChatRoom; 
