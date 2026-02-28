@@ -20,6 +20,7 @@ import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Posts from "./pages/Posts";
 import NotFound from "./pages/NotFound";
+import NewsPage from "./pages/NewsPage";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const AppContent = () => {
       <Route path="/settings" element={<Settings />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/posts" element={<Posts />} />
+      <Route path="/news" element={<NewsPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
