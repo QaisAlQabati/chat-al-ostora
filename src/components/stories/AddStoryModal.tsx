@@ -52,12 +52,17 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [storyType, setStoryType] = useState<'media' | 'text'>('media');
-  
+
   // Text story options
   const [textContent, setTextContent] = useState('');
   const [backgroundColor, setBackgroundColor] = useState(backgroundColors[0]);
   const [textColor, setTextColor] = useState('#ffffff');
-  
+
+  // ── نص على الصورة/الفيديو (جديد) ────────────────────────────
+  const [mediaOverlayText, setMediaOverlayText]   = useState('');
+  const [mediaOverlayColor, setMediaOverlayColor] = useState('#ffffff');
+  const [showOverlayColors, setShowOverlayColors] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -91,10 +96,9 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
       let mediaType = 'text';
 
       if (storyType === 'media' && selectedFile) {
-        // Upload to storage
         const fileExt = selectedFile.name.split('.').pop();
         const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from('stories')
           .upload(fileName, selectedFile);
@@ -108,7 +112,6 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
         mediaUrl = publicUrl;
         mediaType = selectedFile.type.startsWith('video') ? 'video' : 'image';
       } else {
-        // For text stories, create a data URL with the styling info
         const storyData = JSON.stringify({
           type: 'text',
           content: textContent,
@@ -119,9 +122,17 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
         mediaType = 'text';
       }
 
-      // Create story record
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
+
+      // ✅ نحفظ النص + لونه في caption بصيغة JSON إذا كان media
+      const captionValue = storyType === 'media'
+        ? JSON.stringify({
+            text: caption,
+            overlayText: mediaOverlayText,
+            overlayColor: mediaOverlayColor,
+          })
+        : textContent;
 
       const { error: insertError } = await supabase
         .from('stories')
@@ -129,7 +140,7 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
           user_id: user.id,
           media_url: mediaUrl,
           media_type: mediaType,
-          caption: storyType === 'media' ? caption : textContent,
+          caption: captionValue,
           expires_at: expiresAt.toISOString(),
         });
 
@@ -138,12 +149,12 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
       toast.success(lang === 'ar' ? 'تم نشر الاستوري بنجاح!' : 'Story posted successfully!');
       onSuccess();
       onClose();
-      
-      // Reset state
+
       setSelectedFile(null);
       setPreview(null);
       setCaption('');
       setTextContent('');
+      setMediaOverlayText('');
     } catch (error) {
       console.error('Error uploading story:', error);
       toast.error(lang === 'ar' ? 'فشل نشر الاستوري' : 'Failed to post story');
@@ -175,7 +186,7 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
         </div>
 
         {/* Story Type Tabs */}
-        <Tabs value={storyType} onValueChange={(v) => setStoryType(v as 'media' | 'text')} className="flex-1 flex flex-col">
+        <Tabs value={storyType} onValueChange={(v) => setStoryType(v as 'media' | 'text')} className="flex-1 flex flex-col overflow-y-auto">
           <TabsList className="mx-4 mt-4">
             <TabsTrigger value="media" className="flex-1 gap-2">
               <Image className="w-4 h-4" />
@@ -187,27 +198,83 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
             </TabsTrigger>
           </TabsList>
 
-          {/* Media Story */}
-          <TabsContent value="media" className="flex-1 flex flex-col items-center justify-center p-4">
+          {/* ══ Media Story ══════════════════════════════════════ */}
+          <TabsContent value="media" className="flex-1 flex flex-col items-center p-4 gap-4">
             {preview ? (
-              <div className="relative w-full max-w-md aspect-[9/16] rounded-2xl overflow-hidden">
-                {selectedFile?.type.startsWith('video') ? (
-                  <video src={preview} className="w-full h-full object-cover" controls />
-                ) : (
-                  <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                )}
-                <button
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setPreview(null);
-                  }}
-                  className="absolute top-4 right-4 p-2 rounded-full bg-background/50 backdrop-blur-sm"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              <>
+                {/* معاينة مع النص المركب */}
+                <div className="relative w-full max-w-md aspect-[9/16] rounded-2xl overflow-hidden">
+                  {selectedFile?.type.startsWith('video') ? (
+                    <video src={preview} className="w-full h-full object-cover" controls />
+                  ) : (
+                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                  )}
+
+                  {/* ✅ نص المتراكب يظهر في الأسفل */}
+                  {mediaOverlayText ? (
+                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-black/40 backdrop-blur-sm">
+                      <p
+                        className="text-center font-semibold text-lg break-words"
+                        style={{ color: mediaOverlayColor }}
+                      >
+                        {mediaOverlayText}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <button
+                    onClick={() => { setSelectedFile(null); setPreview(null); }}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-background/50 backdrop-blur-sm"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* ✅ حقل النص المتراكب */}
+                <div className="w-full max-w-md space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder={lang === 'ar' ? '✏️ أضف نصاً على الصورة/الفيديو...' : '✏️ Add text overlay...'}
+                      value={mediaOverlayText}
+                      onChange={(e) => setMediaOverlayText(e.target.value)}
+                      className="bg-muted flex-1"
+                    />
+                    {/* اختيار لون النص المتراكب */}
+                    <button
+                      type="button"
+                      onClick={() => setShowOverlayColors(!showOverlayColors)}
+                      className="w-9 h-9 rounded-full border-2 border-primary flex-shrink-0"
+                      style={{ backgroundColor: mediaOverlayColor }}
+                    />
+                  </div>
+                  {showOverlayColors && (
+                    <div className="flex flex-wrap gap-2 p-2 bg-muted/50 rounded-xl">
+                      {textColors.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => { setMediaOverlayColor(color); setShowOverlayColors(false); }}
+                          className={`w-8 h-8 rounded-full border-2 transition-all
+                            ${mediaOverlayColor === color ? 'border-primary scale-110' : 'border-transparent'}`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* وصف عام */}
+                <div className="w-full max-w-md">
+                  <Input
+                    placeholder={lang === 'ar' ? 'أضف وصفاً...' : 'Add a caption...'}
+                    value={caption}
+                    onChange={(e) => setCaption(e.target.value)}
+                    className="bg-muted"
+                  />
+                </div>
+              </>
             ) : (
-              <div className="flex flex-col items-center gap-6">
+              <div className="flex flex-col items-center gap-6 justify-center flex-1">
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className="w-48 h-48 rounded-3xl border-2 border-dashed border-primary/50 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-primary transition-colors"
@@ -217,13 +284,8 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
                     {lang === 'ar' ? 'اختر صورة أو فيديو' : 'Choose image or video'}
                   </span>
                 </div>
-
                 <div className="flex gap-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="gap-2"
-                  >
+                  <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
                     <Image className="w-5 h-5" />
                     {lang === 'ar' ? 'معرض' : 'Gallery'}
                   </Button>
@@ -242,27 +304,16 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
               onChange={handleFileSelect}
               className="hidden"
             />
-
-            {selectedFile && (
-              <div className="w-full max-w-md mt-4">
-                <Input
-                  placeholder={lang === 'ar' ? 'أضف وصفاً...' : 'Add a caption...'}
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  className="bg-muted"
-                />
-              </div>
-            )}
           </TabsContent>
 
-          {/* Text Story */}
-          <TabsContent value="text" className="flex-1 flex flex-col p-4">
-            {/* Preview */}
-            <div 
+          {/* ══ Text Story ═══════════════════════════════════════ */}
+          <TabsContent value="text" className="flex-1 flex flex-col p-4 overflow-y-auto">
+            {/* معاينة */}
+            <div
               className="w-full max-w-md mx-auto aspect-[9/16] rounded-2xl flex items-center justify-center p-6 mb-4"
               style={{ background: backgroundColor }}
             >
-              <p 
+              <p
                 className="text-2xl font-bold text-center break-words max-w-full"
                 style={{ color: textColor }}
               >
@@ -270,7 +321,7 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
               </p>
             </div>
 
-            {/* Text Input */}
+            {/* حقل النص */}
             <Textarea
               placeholder={lang === 'ar' ? 'اكتب قصتك...' : 'Write your story...'}
               value={textContent}
@@ -280,7 +331,7 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
               maxLength={500}
             />
 
-            {/* Background Color Selection */}
+            {/* ✅ اختيار لون الخلفية */}
             <div className="mb-4">
               <p className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
                 <Palette className="w-4 h-4" />
@@ -300,7 +351,7 @@ const AddStoryModal: React.FC<AddStoryModalProps> = ({ isOpen, onClose, onSucces
               </div>
             </div>
 
-            {/* Text Color Selection */}
+            {/* اختيار لون النص */}
             <div>
               <p className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
                 <Type className="w-4 h-4" />
