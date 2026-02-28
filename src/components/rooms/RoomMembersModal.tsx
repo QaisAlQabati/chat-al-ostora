@@ -50,7 +50,7 @@ const RoomMembersModal: React.FC<RoomMembersModalProps> = ({
 }) => {
   const { lang } = useLanguage();
   const { user } = useAuth();
-  
+
   const [members, setMembers] = useState<Member[]>([]);
   const [bannedMembers, setBannedMembers] = useState<Member[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
