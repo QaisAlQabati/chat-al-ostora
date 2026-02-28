@@ -1,21 +1,19 @@
 import React from 'react';
-import { Ban, LogOut } from 'lucide-react';
+import { Ban, Shield } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 
 interface BannedScreenProps {
   banReason?: string;
   banExpiresAt?: string;
+  isXBan?: boolean;
+  bannedBy?: string;
 }
 
-const BannedScreen: React.FC<BannedScreenProps> = ({ banReason, banExpiresAt }) => {
+const BannedScreen: React.FC<BannedScreenProps> = ({ banReason, banExpiresAt, isXBan, bannedBy }) => {
   const { lang } = useLanguage();
-  const { signOut } = useAuth();
 
   const formatExpiryDate = (dateStr?: string) => {
     if (!dateStr) return lang === 'ar' ? 'دائم' : 'Permanent';
-    
     const date = new Date(dateStr);
     return date.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', {
       year: 'numeric',
@@ -27,20 +25,34 @@ const BannedScreen: React.FC<BannedScreenProps> = ({ banReason, banExpiresAt }) 
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-4" style={{ pointerEvents: 'all' }}>
       <div className="max-w-md w-full text-center space-y-6">
         {/* Ban Icon */}
-        <div className="w-24 h-24 mx-auto rounded-full bg-destructive/20 flex items-center justify-center">
-          <Ban className="w-12 h-12 text-destructive" />
+        <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center ${isXBan ? 'bg-purple-500/20' : 'bg-destructive/20'}`}>
+          {isXBan ? (
+            <Shield className="w-12 h-12 text-purple-500" />
+          ) : (
+            <Ban className="w-12 h-12 text-destructive" />
+          )}
         </div>
 
         {/* Title */}
-        <h1 className="text-3xl font-bold text-destructive">
-          {lang === 'ar' ? '⛔ أنت محظور' : '⛔ You Are Banned'}
+        <h1 className={`text-3xl font-bold ${isXBan ? 'text-purple-500' : 'text-destructive'}`}>
+          {isXBan
+            ? (lang === 'ar' ? '🚫 أنت محظور نهائياً (X-Ban)' : '🚫 You Are Permanently X-Banned')
+            : (lang === 'ar' ? '⛔ أنت محظور' : '⛔ You Are Banned')}
         </h1>
 
+        {isXBan && (
+          <p className="text-purple-400 text-sm font-semibold">
+            {lang === 'ar'
+              ? '⚠️ هذا الحظر مرتبط بجهازك وشبكتك - لا يمكن تجاوزه'
+              : '⚠️ This ban is tied to your device & network - it cannot be bypassed'}
+          </p>
+        )}
+
         {/* Reason Card */}
-        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-6 space-y-4">
+        <div className={`border rounded-xl p-6 space-y-4 ${isXBan ? 'bg-purple-500/10 border-purple-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
           <div>
             <p className="text-sm text-muted-foreground mb-1">
               {lang === 'ar' ? 'السبب:' : 'Reason:'}
@@ -50,32 +62,37 @@ const BannedScreen: React.FC<BannedScreenProps> = ({ banReason, banExpiresAt }) 
             </p>
           </div>
 
-          <div className="border-t border-destructive/20 pt-4">
+          {bannedBy && (
+            <div className={`border-t pt-4 ${isXBan ? 'border-purple-500/20' : 'border-destructive/20'}`}>
+              <p className="text-sm text-muted-foreground mb-1">
+                {lang === 'ar' ? 'تم الحظر بواسطة:' : 'Banned by:'}
+              </p>
+              <p className="font-medium">{bannedBy}</p>
+            </div>
+          )}
+
+          <div className={`border-t pt-4 ${isXBan ? 'border-purple-500/20' : 'border-destructive/20'}`}>
             <p className="text-sm text-muted-foreground mb-1">
               {lang === 'ar' ? 'ينتهي الحظر في:' : 'Ban expires:'}
             </p>
             <p className="font-medium">
-              {formatExpiryDate(banExpiresAt)}
+              {isXBan ? (lang === 'ar' ? 'أبدي ❌' : 'Never ❌') : formatExpiryDate(banExpiresAt)}
             </p>
           </div>
         </div>
 
         {/* Message */}
         <p className="text-muted-foreground">
-          {lang === 'ar' 
-            ? 'لا يمكنك الوصول إلى الموقع أثناء فترة الحظر. إذا كنت تعتقد أن هذا خطأ، يرجى التواصل مع الإدارة.'
-            : 'You cannot access the site during your ban period. If you believe this is a mistake, please contact the administration.'}
+          {isXBan
+            ? (lang === 'ar'
+              ? 'تم حظرك بشكل نهائي من المنصة. هذا الحظر لا يمكن تجاوزه بأي طريقة.'
+              : 'You have been permanently banned from this platform. This ban cannot be bypassed by any means.')
+            : (lang === 'ar'
+              ? 'لا يمكنك الوصول إلى الموقع أثناء فترة الحظر. إذا كنت تعتقد أن هذا خطأ، يرجى التواصل مع الإدارة.'
+              : 'You cannot access the site during your ban period. If you believe this is a mistake, please contact the administration.')}
         </p>
 
-        {/* Logout Button */}
-        <Button 
-          variant="outline" 
-          onClick={signOut}
-          className="w-full"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          {lang === 'ar' ? 'تسجيل الخروج' : 'Sign Out'}
-        </Button>
+        {/* NO LOGOUT BUTTON - intentionally removed */}
       </div>
     </div>
   );
