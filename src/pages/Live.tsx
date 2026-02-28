@@ -73,9 +73,8 @@ const Live: React.FC = () => {
         video: cameraEnabled,
         audio: micEnabled,
       });
-      
-      // Store stream temporarily but stop it before navigating
-      mediaStream.getTracks().forEach(track => track.stop());
+
+      setStream(mediaStream);
 
       // Update database
       const { error } = await supabase
