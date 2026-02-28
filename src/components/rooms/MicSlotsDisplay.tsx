@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Mic, MicOff, Plus, X, Volume2, VolumeX, Hand } from 'lucide-react';
+import { Mic, MicOff, Plus, X, Volume2, VolumeX, Hand, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { MicSlot, RoomMicSettings } from '@/hooks/useRoomMics';
+import useVoiceChat from '@/hooks/useVoiceChat';
 
 interface MicSlotsDisplayProps {
   slots: MicSlot[];
@@ -25,6 +26,7 @@ interface MicSlotsDisplayProps {
   onLeaveSlot: () => void;
   onRemoveFromMic: (slotId: string) => void;
   onToggleMute: (slotId: string, muted: boolean) => void;
+  roomId?: string;
 }
 
 const MicSlotsDisplay: React.FC<MicSlotsDisplayProps> = ({
@@ -39,11 +41,17 @@ const MicSlotsDisplay: React.FC<MicSlotsDisplayProps> = ({
   onLeaveSlot,
   onRemoveFromMic,
   onToggleMute,
+  roomId,
 }) => {
   const { lang } = useLanguage();
   const { user } = useAuth();
-  const [mutedSlots, setMutedSlots] = useState<Set<string>>(new Set());
   const [volumes, setVolumes] = useState<Record<string, number>>({});
+
+  // ✅ تفعيل الصوت الحقيقي
+  const { isMicActive, micError, mutedPeers, togglePeerMute } = useVoiceChat(
+    roomId,
+    !!mySlot  // أنا على المايك؟
+  );
 
   if (!settings?.mic_enabled) {
     return null;
@@ -53,31 +61,39 @@ const MicSlotsDisplay: React.FC<MicSlotsDisplayProps> = ({
     return slots.find(s => s.slot_number === i + 1) || null;
   });
 
-  const toggleLocalMute = (slotId: string) => {
-    setMutedSlots(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(slotId)) {
-        newSet.delete(slotId);
-      } else {
-        newSet.add(slotId);
-      }
-      return newSet;
-    });
-  };
-
   const handleVolumeChange = (slotId: string, value: number[]) => {
     setVolumes(prev => ({ ...prev, [slotId]: value[0] }));
   };
 
   return (
     <div className="w-full px-2 py-3">
+
+      {/* ✅ تنبيه خطأ الميكروفون */}
+      {micError && (
+        <div className="mb-2 mx-2 flex items-center gap-2 p-2 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{micError}</span>
+        </div>
+      )}
+
+      {/* ✅ مؤشر أن الميكروفون يعمل */}
+      {isMicActive && mySlot && (
+        <div className="mb-2 mx-2 flex items-center gap-2 p-1.5 bg-green-500/10 border border-green-500/30 rounded-lg">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-xs text-green-600">
+            {lang === 'ar' ? 'الميكروفون يعمل — الجميع يسمعك' : 'Mic active — everyone can hear you'}
+          </span>
+        </div>
+      )}
+
       {/* Mic Slots Row */}
       <div className="flex items-center justify-center gap-2 flex-wrap">
         {slotArray.map((slot, index) => {
-          const slotNumber = index + 1;
-          const isMySlot = slot?.user_id === user?.id;
-          const isLocallyMuted = slot ? mutedSlots.has(slot.id) : false;
-          const volume = slot ? (volumes[slot.id] ?? 100) : 100;
+          const slotNumber   = index + 1;
+          const isMySlot     = slot?.user_id === user?.id;
+          // ✅ الكتم من عندك أنت فقط (محلي)
+          const isLocallyMuted = slot ? mutedPeers.has(slot.user_id) : false;
+          const volume       = slot ? (volumes[slot.id] ?? 100) : 100;
 
           return (
             <div
@@ -111,20 +127,20 @@ const MicSlotsDisplay: React.FC<MicSlotsDisplayProps> = ({
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Mic status indicator */}
                         <div className={cn(
                           'absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center',
-                          slot.is_muted ? 'bg-red-500' : 'bg-green-500'
+                          slot.is_muted || isLocallyMuted ? 'bg-red-500' : 'bg-green-500'
                         )}>
-                          {slot.is_muted ? (
+                          {slot.is_muted || isLocallyMuted ? (
                             <MicOff className="w-3 h-3 text-white" />
                           ) : (
                             <Mic className="w-3 h-3 text-white" />
                           )}
                         </div>
 
-                        {/* Speaking animation */}
+                        {/* Speaking animation — يشتغل لما الصوت فعّال */}
                         {!slot.is_muted && !isLocallyMuted && (
                           <div className="absolute inset-0 rounded-full border-2 border-green-500 animate-ping opacity-30" />
                         )}
@@ -161,20 +177,22 @@ const MicSlotsDisplay: React.FC<MicSlotsDisplayProps> = ({
                       </div>
                     </div>
 
-                    {/* Local mute */}
-                    <DropdownMenuItem onClick={() => toggleLocalMute(slot.id)}>
-                      {isLocallyMuted ? (
-                        <>
-                          <Volume2 className="w-4 h-4 mr-2" />
-                          {lang === 'ar' ? 'إلغاء الكتم' : 'Unmute'}
-                        </>
-                      ) : (
-                        <>
-                          <VolumeX className="w-4 h-4 mr-2" />
-                          {lang === 'ar' ? 'كتم لي فقط' : 'Mute for me'}
-                        </>
-                      )}
-                    </DropdownMenuItem>
+                    {/* ✅ كتم محلي — يكتم الصوت من عندك أنت فقط */}
+                    {!isMySlot && (
+                      <DropdownMenuItem onClick={() => togglePeerMute(slot.user_id)}>
+                        {isLocallyMuted ? (
+                          <>
+                            <Volume2 className="w-4 h-4 mr-2" />
+                            {lang === 'ar' ? 'إلغاء الكتم' : 'Unmute'}
+                          </>
+                        ) : (
+                          <>
+                            <VolumeX className="w-4 h-4 mr-2" />
+                            {lang === 'ar' ? 'كتم لي فقط' : 'Mute for me'}
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    )}
 
                     {/* Self controls */}
                     {isMySlot && (
@@ -215,7 +233,7 @@ const MicSlotsDisplay: React.FC<MicSlotsDisplayProps> = ({
                 // Empty Slot
                 <button
                   onClick={() => {
-                    if (mySlot) return; // Already on mic
+                    if (mySlot) return;
                     if (hasMyRequest) {
                       onCancelRequest();
                     } else {
